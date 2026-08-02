@@ -40,7 +40,12 @@ history.
 - **2026-08-01** — Local-first infrastructure (Docker for packaging, no
   managed cloud services during build) with a cloud deploy planned only at
   the end, to keep iteration fast and cost at zero during development.
-- **2026-08-01** — Dataset: Kaggle's "Customer Support Ticket Dataset"
-  (structured fields — category, priority, channel, resolution — plus free
-  text). Chosen because it supports both the ML classifier (Phase 2) and
-  the RAG resolution assistant (Phase 3) without needing a second dataset.
+- **2026-08-01** — ~~Dataset: Kaggle's "Customer Support Ticket Dataset"~~
+  — superseded same day, see below.
+- **2026-08-01** — Dataset (final): Kaggle's "Twitter Customer Support"
+  dataset — real brand-support exchanges on Twitter. Chosen over the more
+  structured ticket dataset because the raw text is noisier and less
+  structured, which means more real data-engineering work in Phase 1
+  (parsing conversation threads, handling missing structure, inferring
+  category/priority labels that aren't given for free) — a more realistic
+  pipeline story than a dataset that arrives pre-labeled.
