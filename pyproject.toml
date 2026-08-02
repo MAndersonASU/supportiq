@@ -1,0 +1,9 @@
+[project]
+name = "supportiq"
+version = "0.1.0"
+description = "Ticket triage and a Claude-powered RAG resolution assistant for customer support."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

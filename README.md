@@ -42,6 +42,30 @@ src/
 └── serving/    FastAPI application
 tests/          unit and pipeline tests
 docs/           architecture notes and the engineering log
+data/
+├── raw/        untouched source data (gitignored)
+├── landing/    schema-conformant Parquet, pre-validation (gitignored)
+└── processed/  cleaned, validated data (gitignored)
+```
+
+## Setup
+
+```
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+```
+
+Fetching the raw dataset requires a Kaggle API token at
+`~/.kaggle/kaggle.json` (see [Kaggle API docs](https://www.kaggle.com/docs/api)):
+
+```
+.venv\Scripts\python -m kaggle datasets download -d thoughtvector/customer-support-on-twitter -f "twcs/twcs.csv" -p data/raw
+```
+
+Then run the ingestion stage:
+
+```
+.venv\Scripts\python -m src.data.ingest
 ```
 
 ## Status

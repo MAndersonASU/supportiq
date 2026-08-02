@@ -11,9 +11,14 @@ venv/
 
 # Data (tracked via DVC, not git)
 data/raw/*
+data/landing/*
 data/processed/*
 !data/raw/.gitkeep
+!data/landing/.gitkeep
 !data/processed/.gitkeep
+
+# pytest cache
+.pytest_cache/
 
 # MLflow / experiment artifacts
 mlruns/
