@@ -40,3 +40,7 @@ history.
 - **2026-08-01** — Local-first infrastructure (Docker for packaging, no
   managed cloud services during build) with a cloud deploy planned only at
   the end, to keep iteration fast and cost at zero during development.
+- **2026-08-01** — Dataset: Kaggle's "Customer Support Ticket Dataset"
+  (structured fields — category, priority, channel, resolution — plus free
+  text). Chosen because it supports both the ML classifier (Phase 2) and
+  the RAG resolution assistant (Phase 3) without needing a second dataset.
