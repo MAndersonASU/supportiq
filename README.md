@@ -5,8 +5,8 @@ combines a production-style data pipeline, a classical ML triage model, and a
 Claude-powered retrieval-augmented resolution assistant.
 
 Built incrementally, one pipeline stage at a time, with each stage documented
-as it's built. See [`docs/engineering-log/`](docs/engineering-log/) for the
-day-by-day build log and [`docs/architecture.md`](docs/architecture.md) for
+as it's completed. See [`docs/engineering-log/`](docs/engineering-log/) for
+the development log and [`docs/architecture.md`](docs/architecture.md) for
 the system design.
 
 ## Problem
@@ -41,7 +41,7 @@ src/
 ├── ai/         embeddings, vector store, RAG, agent logic
 └── serving/    FastAPI application
 tests/          unit and pipeline tests
-docs/           architecture notes and the daily engineering log
+docs/           architecture notes and the engineering log
 ```
 
 ## Status
