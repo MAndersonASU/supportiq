@@ -16,6 +16,7 @@ data/processed/*
 !data/raw/.gitkeep
 !data/landing/.gitkeep
 !data/processed/.gitkeep
+!data/processed/validation_report.json
 
 # pytest cache
 .pytest_cache/

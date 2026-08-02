@@ -62,10 +62,11 @@ Fetching the raw dataset requires a Kaggle API token at
 .venv\Scripts\python -m kaggle datasets download -d thoughtvector/customer-support-on-twitter -f "twcs/twcs.csv" -p data/raw
 ```
 
-Then run the ingestion stage:
+Then run the pipeline stages in order:
 
 ```
 .venv\Scripts\python -m src.data.ingest
+.venv\Scripts\python -m src.data.validate
 ```
 
 ## Status
