@@ -1,5 +1,6 @@
 pandas==3.0.5
 pydantic==2.13.4
 pyarrow==25.0.0
+pandera==0.32.1
 kaggle==2.2.4
 pytest==9.1.1

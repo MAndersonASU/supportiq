@@ -1,0 +1,8 @@
+{
+  "rows_in": 2811774,
+  "rows_valid": 2811774,
+  "rows_rejected": 0,
+  "broken_response_links": 3862,
+  "broken_response_link_rate": 0.0019,
+  "duplicate_author_text_pairs": 4732
+}
