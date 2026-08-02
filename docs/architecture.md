@@ -18,8 +18,9 @@ SupportIQ is built as five pipeline stages, each owned by a `src/` module:
 ## Data flow
 
 ```
-raw tickets (data/raw)
-   → validation (data contract: required fields, types, allowed categories)
+raw tweets (data/raw, untouched source data)
+   → ingestion (schema validation via Pydantic, malformed records quarantined)
+   → landing zone (data/landing, schema-conformant Parquet)
    → cleaning (text normalization, dedup, missing-value policy)
    → processed dataset (data/processed, versioned with DVC)
    → feature engineering
@@ -27,6 +28,17 @@ raw tickets (data/raw)
    → embeddings → vector store
    → RAG pipeline (retrieval + Claude generation) → serving layer
 ```
+
+### Ingestion (`src/data/ingest.py`, `src/data/schema.py`)
+
+The raw dataset is ~2.8M tweets (516 MB as CSV) and is never loaded into
+memory in full. `ingest.py` streams it in 50k-row chunks, validates each
+row against the `RawTweet` Pydantic model (the data contract — field
+types, required fields, parseable dates and ID lists), and writes
+conformant rows to `data/landing/tweets.parquet`. Rows that fail
+validation are counted and skipped rather than aborting the run, so a
+handful of malformed records at row 2 million doesn't take down the whole
+ingestion job.
 
 ## Design decisions log
 
@@ -46,3 +58,15 @@ history.
   structured, requiring real data-engineering work in Phase 1 (parsing
   conversation threads, handling missing structure, deriving category and
   priority labels rather than reading them off the schema).
+- **2026-08-01** — Ingestion streams the raw CSV in chunks rather than
+  loading it into a single DataFrame, to keep peak memory bounded
+  regardless of dataset size. Landing-zone output uses Parquet (columnar,
+  typed, compressed) instead of CSV, since every downstream stage reads
+  this file repeatedly and Parquet is both smaller on disk and faster to
+  read back than CSV.
+- **2026-08-01** — Schema validation (`RawTweet`, a Pydantic model) is
+  enforced during ingestion itself rather than deferred entirely to a
+  later validation stage. Structural validity (types, parseable dates,
+  well-formed ID lists) belongs at the ingestion boundary; business-rule
+  validation (allowed value ranges, cross-field consistency) is handled
+  separately in the validation stage.
