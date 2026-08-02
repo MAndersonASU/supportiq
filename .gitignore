@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Environment / secrets
+.env
+*.env.local
+
+# Data (tracked via DVC, not git)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# MLflow / experiment artifacts
+mlruns/
+mlartifacts/
+
+# Vector store / model artifacts
+*.faiss
+*.chroma/
+models/*.pkl
+models/*.joblib
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
