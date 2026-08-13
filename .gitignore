@@ -22,6 +22,7 @@ data/processed/*
 !data/processed/cleaning_report.json
 !data/processed/feature_report.json
 !data/processed/labeling_report.json
+!data/processed/model_evaluation_report.json
 !data/processed/*.dvc
 
 # pytest cache
@@ -30,12 +31,15 @@ data/processed/*
 # MLflow / experiment artifacts
 mlruns/
 mlartifacts/
+mlflow.db
+mlflow.db-*
 
 # Vector store / model artifacts
 *.faiss
 *.chroma/
 models/*.pkl
 models/*.joblib
+!models/.gitkeep
 
 # OS / editor
 .DS_Store

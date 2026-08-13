@@ -165,6 +165,41 @@ outcome field like `first_response_seconds`, since deriving a label from
 an outcome a future model might predict would leak that outcome into its
 own target.
 
+### Baseline classifiers (`src/models/split_data.py`, `src/models/train_classifier.py`)
+
+Two separate TF-IDF + logistic regression models — one for `category`,
+one for `priority` — trained on the weak-supervision labels, each
+compared against a majority-class baseline and tracked in MLflow
+(SQLite-backed store at `mlflow.db`; MLflow's plain filesystem backend is
+in maintenance mode as of the version used here). A single stratified
+70/15/15 train/val/test split (stratified on `category`, the more
+imbalanced target) is reused for both models, so a ticket is never in
+train for one target and test for the other.
+
+**Read the category metric with its actual meaning, not its face value.**
+Test macro F1 is 0.977, uniformly high across all seven classes
+(0.94–0.997). That is the signature of a model reconstructing a
+deterministic function, not evidence of learned semantic understanding —
+expected, because word-level TF-IDF features overlap almost completely
+with the exact keyword phrases that define the labels, and there is no
+independent ground truth to check real generalization against. This
+number answers "did the model recover the labeling rule," not "does the
+model understand support ticket categories."
+
+**Priority (test macro F1 0.421) is weaker for a specific, diagnosable
+reason, not because it's a harder problem in the abstract.** Part of the
+priority label depends on exclamation marks and ALL-CAPS words, but
+scikit-learn's default `TfidfVectorizer` lowercases text and strips
+punctuation before tokenizing — that signal is structurally invisible to
+the model. Feeding those same signals in as explicit features would only
+reproduce category's circularity under a different name, so this gap is
+documented rather than papered over. Separately,
+`class_weight="balanced"` is pushing hard on the rare High-priority
+class: precision there is 0.115 (many false positives) against a recall
+of 0.447 — a real, tunable cost of balancing against a distribution this
+skewed (75% Low / 20% Medium / 5% High), left for the hyperparameter-
+tuning stage rather than adjusted ad hoc here.
+
 ## Design decisions log
 
 Decisions are recorded here as they're made, with the reasoning, so the
@@ -244,3 +279,19 @@ history.
   though response time is an intuitive urgency proxy. A label built from
   an outcome the classifier might later be asked to predict (or that
   correlates with what it predicts) leaks the answer into its own target.
+- **2026-08-13** — One stratified split (on `category`), reused for both
+  the category and priority classifiers, rather than splitting
+  independently per target. Keeps a given ticket in the same partition
+  for both models — simpler to reason about than two splits that
+  disagree on which tickets are held out.
+- **2026-08-13** — Switched MLflow's tracking backend from the default
+  filesystem store to SQLite (`sqlite:///mlflow.db`) after the filesystem
+  backend raised a maintenance-mode error on the installed MLflow
+  version. This is the currently recommended backend, not a workaround.
+- **2026-08-13** — Did not add exclamation-mark/ALL-CAPS features to the
+  priority classifier to close its accuracy gap with category. Those
+  features are literally the inputs to the priority labeling function;
+  feeding them to the model would reproduce category's rule-reconstruction
+  circularity rather than fix anything. The gap is documented as an
+  understood, structural property of training on weak-supervision labels
+  with a feature space narrower than the label's own construction.

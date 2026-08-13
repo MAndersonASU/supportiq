@@ -46,8 +46,10 @@ data/
 ├── raw/        untouched source data (gitignored)
 ├── landing/    schema-conformant Parquet, pre-validation (gitignored)
 ├── validated/  business-rule-validated Parquet (gitignored; report tracked)
-└── processed/  cleaned tweets and the final ticket_features.parquet
+└── processed/  cleaned tweets, ticket_features.parquet, labeled_tickets.parquet
               (gitignored; reports and the DVC pointer file are tracked)
+models/         trained classifier artifacts (gitignored, reproducible via train_classifier)
+mlflow.db       local MLflow tracking store (gitignored)
 ```
 
 ## Setup
@@ -72,9 +74,12 @@ Then run the pipeline stages in order:
 .venv\Scripts\python -m src.data.clean
 .venv\Scripts\python -m src.features.build_ticket_features
 .venv\Scripts\python -m src.models.label_tickets
+.venv\Scripts\python -m src.models.train_classifier
 ```
 
 The dataset ships with no ground-truth category/priority labels. `label_tickets` applies weak supervision (keyword labeling functions) rather than calling a paid LLM API; the category keywords were grounded by an exploratory clustering pass — see `src/models/explore_categories.py` and `docs/architecture.md`.
+
+`train_classifier` trains a baseline TF-IDF + logistic regression classifier for category and for priority, tracked in MLflow (`mlflow ui --backend-store-uri sqlite:///mlflow.db` to view runs locally). Read `docs/architecture.md` before trusting the category metric at face value — it's explained there.
 
 Phase 3's RAG assistant will use the Claude API — set `ANTHROPIC_API_KEY` in a local `.env` file (gitignored) when that stage is built.
 
