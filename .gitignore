@@ -24,6 +24,7 @@ data/processed/*
 !data/processed/labeling_report.json
 !data/processed/model_evaluation_report.json
 !data/processed/tuning_report.json
+!data/processed/registry_report.json
 !data/processed/*.dvc
 
 # pytest cache

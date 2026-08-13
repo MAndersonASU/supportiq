@@ -228,6 +228,24 @@ thresholding, or the punctuation/casing features already ruled out in
 the baseline stage for circularity reasons) rather than anything in this
 grid.
 
+### Model registry (`src/models/register_model.py`)
+
+Registers each tuned classifier as a new version in the MLflow Model
+Registry and applies an explicit, code-defined promotion policy via
+registry aliases — `staging` and `production` — rather than the
+MLflow's older stage-based transitions, which are legacy in the
+installed version.
+
+A version reaches `staging` only if it beats its majority-class baseline
+by at least 0.05 absolute macro F1; both classifiers cleared this by a
+wide margin (category: +0.86, priority: +0.14). It reaches `production`
+only if it also matches or beats whatever is currently in production —
+or there is no incumbent yet, which was the case for both models' first
+versions here. The comparison and promotion decision (`decide_promotion`)
+is a pure function, kept separate from the MLflow read/write calls
+around it, so the policy itself is fully unit-testable without a live
+registry.
+
 ## Design decisions log
 
 Decisions are recorded here as they're made, with the reasoning, so the
@@ -332,3 +350,12 @@ history.
   per trial. Vectorizing 550k+ documents is the expensive step; only the
   classifier changes between grid points, so refitting it every trial
   wastes runtime without changing the result.
+- **2026-08-13** — Model promotion uses MLflow registry aliases
+  (`staging`/`production`), not the legacy stage-transition API. Aliases
+  are the current registry mechanism in the installed MLflow version.
+- **2026-08-13** — Promotion requires a 0.05 absolute macro F1 lift over
+  the majority-class baseline before a version can reach staging, and
+  requires matching or beating the current production version before it
+  can replace it. A fixed, code-defined threshold applied uniformly is
+  the point — it stops "the model works" from being a subjective call
+  made per run.

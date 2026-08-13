@@ -76,7 +76,10 @@ Then run the pipeline stages in order:
 .venv\Scripts\python -m src.models.label_tickets
 .venv\Scripts\python -m src.models.train_classifier
 .venv\Scripts\python -m src.models.tune_classifier
+.venv\Scripts\python -m src.models.register_model
 ```
+
+Registered models and their `staging`/`production` aliases are visible via `mlflow ui --backend-store-uri sqlite:///mlflow.db`, under the Models tab.
 
 The dataset ships with no ground-truth category/priority labels. `label_tickets` applies weak supervision (keyword labeling functions) rather than calling a paid LLM API; the category keywords were grounded by an exploratory clustering pass — see `src/models/explore_categories.py` and `docs/architecture.md`.
 
