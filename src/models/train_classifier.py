@@ -33,6 +33,7 @@ EXPERIMENT_NAME = "ticket-triage"
 
 TFIDF_MAX_FEATURES = 20000
 TFIDF_NGRAM_RANGE = (1, 2)
+LOGREG_MAX_ITER = 1000
 
 
 def build_pipeline() -> Pipeline:
@@ -46,7 +47,7 @@ def build_pipeline() -> Pipeline:
                     min_df=3,
                 ),
             ),
-            ("clf", LogisticRegression(max_iter=200, class_weight="balanced")),
+            ("clf", LogisticRegression(max_iter=LOGREG_MAX_ITER, class_weight="balanced")),
         ]
     )
 

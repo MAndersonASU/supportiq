@@ -75,6 +75,7 @@ Then run the pipeline stages in order:
 .venv\Scripts\python -m src.features.build_ticket_features
 .venv\Scripts\python -m src.models.label_tickets
 .venv\Scripts\python -m src.models.train_classifier
+.venv\Scripts\python -m src.models.tune_classifier
 ```
 
 The dataset ships with no ground-truth category/priority labels. `label_tickets` applies weak supervision (keyword labeling functions) rather than calling a paid LLM API; the category keywords were grounded by an exploratory clustering pass — see `src/models/explore_categories.py` and `docs/architecture.md`.

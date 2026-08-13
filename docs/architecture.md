@@ -200,6 +200,34 @@ of 0.447 — a real, tunable cost of balancing against a distribution this
 skewed (75% Low / 20% Medium / 5% High), left for the hyperparameter-
 tuning stage rather than adjusted ad hoc here.
 
+### Hyperparameter tuning (`src/models/tune_classifier.py`)
+
+Sweeps regularization strength (`C` — 0.1, 1.0, 10.0) and class weighting
+(`None`, `balanced`) for both classifiers. The text vectorizer is fit once
+per target and reused across the grid, since re-vectorizing is the
+expensive step and only the classifier itself changes between trials.
+Model selection uses validation macro F1 exclusively; the test set is
+scored exactly once per target, after the winning configuration is
+already fixed, so tuning can't leak into the reported number.
+
+Category's tuned result (test macro F1 0.987) is only marginally above
+the untuned baseline (0.977) — consistent with the earlier finding that
+this task is close to its ceiling regardless of configuration, since the
+model is reconstructing a deterministic rule rather than learning a
+harder decision boundary.
+
+Priority's High-precision problem does not resolve through tuning.
+`class_weight="balanced"` wins on validation macro F1 at every
+regularization strength tested but one, and the tuned model's
+High-priority precision (0.119) is statistically the same as the
+untuned baseline (0.115) regardless of `C`. That rules out "the wrong
+hyperparameter" as the explanation: macro F1 consistently rewards
+balanced weighting despite its precision cost on the rare class, and the
+real fix is a feature or evaluation-strategy change (probability
+thresholding, or the punctuation/casing features already ruled out in
+the baseline stage for circularity reasons) rather than anything in this
+grid.
+
 ## Design decisions log
 
 Decisions are recorded here as they're made, with the reasoning, so the
@@ -295,3 +323,12 @@ history.
   circularity rather than fix anything. The gap is documented as an
   understood, structural property of training on weak-supervision labels
   with a feature space narrower than the label's own construction.
+- **2026-08-13** — Hyperparameter tuning selects on validation macro F1
+  only, with the test set scored once after selection is final. Choosing
+  hyperparameters against the test set would make the final reported
+  number optimistic in a way that doesn't hold up on genuinely new data.
+- **2026-08-13** — The text vectorizer is fit once per target and reused
+  across the tuning grid instead of being refit inside a full pipeline
+  per trial. Vectorizing 550k+ documents is the expensive step; only the
+  classifier changes between grid points, so refitting it every trial
+  wastes runtime without changing the result.
