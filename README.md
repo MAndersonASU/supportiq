@@ -45,7 +45,8 @@ docs/           architecture notes and the engineering log
 data/
 ├── raw/        untouched source data (gitignored)
 ├── landing/    schema-conformant Parquet, pre-validation (gitignored)
-└── processed/  cleaned, validated data (gitignored)
+├── validated/  business-rule-validated Parquet (gitignored; report tracked)
+└── processed/  cleaned, final dataset (gitignored; report tracked)
 ```
 
 ## Setup
@@ -67,6 +68,7 @@ Then run the pipeline stages in order:
 ```
 .venv\Scripts\python -m src.data.ingest
 .venv\Scripts\python -m src.data.validate
+.venv\Scripts\python -m src.data.clean
 ```
 
 ## Status

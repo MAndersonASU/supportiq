@@ -16,8 +16,8 @@ import pandas as pd
 import pandera.pandas as pa
 
 DEFAULT_LANDING_PATH = Path("data/landing/tweets.parquet")
-DEFAULT_PROCESSED_PATH = Path("data/processed/tweets.parquet")
-DEFAULT_REPORT_PATH = Path("data/processed/validation_report.json")
+DEFAULT_VALIDATED_PATH = Path("data/validated/tweets.parquet")
+DEFAULT_REPORT_PATH = Path("data/validated/validation_report.json")
 
 MIN_VALID_DATE = pd.Timestamp("2006-03-21", tz="UTC")
 MAX_VALID_DATE = pd.Timestamp("2020-01-01", tz="UTC")
@@ -70,14 +70,14 @@ def check_dataset(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 def validate(
     landing_path: Path = DEFAULT_LANDING_PATH,
-    processed_path: Path = DEFAULT_PROCESSED_PATH,
+    validated_path: Path = DEFAULT_VALIDATED_PATH,
     report_path: Path = DEFAULT_REPORT_PATH,
 ) -> dict:
     df = pd.read_parquet(landing_path)
     valid_df, report = check_dataset(df)
 
-    processed_path.parent.mkdir(parents=True, exist_ok=True)
-    valid_df.to_parquet(processed_path, index=False)
+    validated_path.parent.mkdir(parents=True, exist_ok=True)
+    valid_df.to_parquet(validated_path, index=False)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2))
 

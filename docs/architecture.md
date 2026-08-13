@@ -22,7 +22,8 @@ raw tweets (data/raw, untouched source data)
    → ingestion (schema validation via Pydantic, malformed records quarantined)
    → landing zone (data/landing, schema-conformant Parquet)
    → validation (business-rule checks via Pandera, quality metrics report)
-   → cleaning (text normalization, dedup, missing-value policy)
+   → validated tier (data/validated, business-rule-passed Parquet)
+   → cleaning (text normalization, missing-value policy)
    → processed dataset (data/processed, versioned with DVC)
    → feature engineering
    → ML training → model registry (MLflow)
@@ -59,9 +60,35 @@ hard check (gates the data) and a soft check (measures the data) is
 itself a design decision, not a technical limitation.
 
 Output: the set of rows passing all hard checks is written to
-`data/processed/tweets.parquet`; the report (row counts, rejection count,
+`data/validated/tweets.parquet`; the report (row counts, rejection count,
 and the two quality metrics) is written to
-`data/processed/validation_report.json`.
+`data/validated/validation_report.json`.
+
+### Cleaning (`src/data/clean.py`)
+
+Reads the validated tier and produces the final processed dataset. Two
+responsibilities:
+
+- **Text normalization** — Unicode NFKC normalization and whitespace
+  collapse, written to a new `text_clean` column. The original `text`
+  column is kept as-is; downstream stages choose which they need, and
+  provenance isn't lost by overwriting the source field.
+- **Missing-value policy, enforced not just assumed** — only
+  `response_tweet_id` and `in_response_to_tweet_id` are allowed to be
+  null (a tweet with no parent or no replies). Every other column is
+  checked and any unexpected null is counted in the cleaning report; on
+  this dataset, ingestion and validation already guarantee this, so the
+  count is a defensive integrity check between pipeline stages, not
+  something expected to fire.
+
+Deduplication was deliberately left out. Validation's
+`duplicate_author_text_pairs` metric flagged ~4,700 rows, but inspecting
+them showed each has a distinct, unique `tweet_id` — they're a support
+account sending the same templated reply to different customers, not
+duplicate records. Deduplicating on `(author_id, text)` would have
+silently deleted real, distinct interactions. The metric was worth
+computing to know it existed; acting on it without checking what it
+actually represented would have corrupted the dataset.
 
 ## Design decisions log
 
@@ -104,3 +131,12 @@ history.
   is kept). Rejecting on every anomaly would be wrong for a dataset that's
   inherently a partial slice of larger conversations; the goal is
   visibility into data quality, not zero tolerance.
+- **2026-08-01** — Split what was originally a single `data/processed`
+  output into `data/validated` (business-rule-passed, pre-cleaning) and
+  `data/processed` (final, cleaned). Collapsing them into one tier made
+  "processed" ambiguous about whether cleaning had actually happened yet.
+- **2026-08-01** — No deduplication in the cleaning stage. The duplicate
+  `(author_id, text)` pairs surfaced by validation are legitimate distinct
+  interactions with unique `tweet_id`s (templated support replies to
+  different customers), not duplicate records — confirmed by inspecting a
+  sample before writing any drop logic against the metric.

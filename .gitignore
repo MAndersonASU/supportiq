@@ -12,11 +12,14 @@ venv/
 # Data (tracked via DVC, not git)
 data/raw/*
 data/landing/*
+data/validated/*
 data/processed/*
 !data/raw/.gitkeep
 !data/landing/.gitkeep
+!data/validated/.gitkeep
+!data/validated/validation_report.json
 !data/processed/.gitkeep
-!data/processed/validation_report.json
+!data/processed/cleaning_report.json
 
 # pytest cache
 .pytest_cache/
