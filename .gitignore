@@ -21,6 +21,7 @@ data/processed/*
 !data/processed/.gitkeep
 !data/processed/cleaning_report.json
 !data/processed/feature_report.json
+!data/processed/labeling_report.json
 !data/processed/*.dvc
 
 # pytest cache

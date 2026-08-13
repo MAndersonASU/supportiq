@@ -129,70 +129,118 @@ silently deleted real, distinct interactions. The metric was worth
 computing to know it existed; acting on it without checking what it
 actually represented would have corrupted the dataset.
 
+### Weak-supervision labeling (`src/models/label_tickets.py`, `src/models/explore_categories.py`)
+
+The dataset has no ground-truth `category` or `priority` labels (identified
+during feature engineering). Two constraints ruled out the usual fixes:
+no hand-labeled sample exists, and there was no budget for LLM-based
+labeling. The solution is weak supervision — keyword labeling functions
+computed directly from ticket text, at zero cost and no scale limit.
+
+The category keyword lists were not guessed. `explore_categories.py` runs
+TF-IDF + LSA (SVD) + KMeans over a sample of ticket text with brand
+handles and anonymized customer IDs stripped out first — without that
+stripping, clusters mostly rediscover *which company* the tweet is
+addressed to (Delta, Apple, Amazon...), which is already captured by
+`brand_id` and tells us nothing about issue type. After stripping, several
+clusters aligned with real issue-type vocabulary: account/password/access,
+order/delivery/package, flight delays, app glitches, service-quality
+complaints. Those clusters' top terms directly informed the keyword lists
+in `label_tickets.py`.
+
+Raw cluster assignment was **not** used as the label. Roughly half the
+sample fell into one large, linguistically generic cluster that KMeans
+could not usefully subdivide (silhouette scores stayed low, 0.05–0.09,
+across every cluster count tried) — a known limitation of TF-IDF
+clustering on short, informal text. Using cluster ID directly would have
+produced one dominant meaningless class.
+
+`assign_category` scores each category's keyword matches (word-boundary
+regex, apostrophe-normalized so typographic quotes like `'` don't break
+contraction keywords) and picks the highest-scoring category, defaulting
+to `General Inquiry` when nothing matches. `assign_priority` scores
+urgency language, exclamation marks, and ALL-CAPS words into Low/Medium/
+High buckets — deliberately computed from ticket text only, never from an
+outcome field like `first_response_seconds`, since deriving a label from
+an outcome a future model might predict would leak that outcome into its
+own target.
+
 ## Design decisions log
 
 Decisions are recorded here as they're made, with the reasoning, so the
 "why" behind the architecture is traceable without digging through commit
 history.
 
-- **2026-08-01** — Chose a single coherent dataset (customer support
+- **2026-08-13** — Chose a single coherent dataset (customer support
   tickets) to drive every phase, rather than separate toy datasets per
   phase, so the project tells one consistent product story end-to-end.
-- **2026-08-01** — Local-first infrastructure (Docker for packaging, no
+- **2026-08-13** — Local-first infrastructure (Docker for packaging, no
   managed cloud services during build) with a cloud deploy planned only at
   the end, to keep iteration fast and cost at zero during development.
-- **2026-08-01** — Dataset: Kaggle's "Twitter Customer Support" dataset —
+- **2026-08-13** — Dataset: Kaggle's "Twitter Customer Support" dataset —
   real brand-support exchanges on Twitter. Chosen over more structured,
   pre-labeled ticket datasets because the raw text is noisier and less
   structured, requiring real data-engineering work in Phase 1 (parsing
   conversation threads, handling missing structure, deriving category and
   priority labels rather than reading them off the schema).
-- **2026-08-01** — Ingestion streams the raw CSV in chunks rather than
+- **2026-08-13** — Ingestion streams the raw CSV in chunks rather than
   loading it into a single DataFrame, to keep peak memory bounded
   regardless of dataset size. Landing-zone output uses Parquet (columnar,
   typed, compressed) instead of CSV, since every downstream stage reads
   this file repeatedly and Parquet is both smaller on disk and faster to
   read back than CSV.
-- **2026-08-01** — Schema validation (`RawTweet`, a Pydantic model) is
+- **2026-08-13** — Schema validation (`RawTweet`, a Pydantic model) is
   enforced during ingestion itself rather than deferred entirely to a
   later validation stage. Structural validity (types, parseable dates,
   well-formed ID lists) belongs at the ingestion boundary; business-rule
   validation (allowed value ranges, cross-field consistency) is handled
   separately in the validation stage.
-- **2026-08-01** — Business-rule validation uses Pandera instead of Great
+- **2026-08-13** — Business-rule validation uses Pandera instead of Great
   Expectations. Great Expectations' dependency chain requires a numpy
   build with no prebuilt wheel for this Python version, forcing a
   from-source compile; Pandera provides equivalent DataFrame schema and
   check enforcement without that overhead.
-- **2026-08-01** — Validation checks are split into hard checks (schema
+- **2026-08-13** — Validation checks are split into hard checks (schema
   violations — the row is dropped) and soft checks (referential
   completeness, near-duplicate detection — a metric is recorded, the row
   is kept). Rejecting on every anomaly would be wrong for a dataset that's
   inherently a partial slice of larger conversations; the goal is
   visibility into data quality, not zero tolerance.
-- **2026-08-01** — Split what was originally a single `data/processed`
+- **2026-08-13** — Split what was originally a single `data/processed`
   output into `data/validated` (business-rule-passed, pre-cleaning) and
   `data/processed` (final, cleaned). Collapsing them into one tier made
   "processed" ambiguous about whether cleaning had actually happened yet.
-- **2026-08-01** — No deduplication in the cleaning stage. The duplicate
+- **2026-08-13** — No deduplication in the cleaning stage. The duplicate
   `(author_id, text)` pairs surfaced by validation are legitimate distinct
   interactions with unique `tweet_id`s (templated support replies to
   different customers), not duplicate records — confirmed by inspecting a
   sample before writing any drop logic against the metric.
-- **2026-08-01** — A ticket is defined as a thread rooted in a
+- **2026-08-13** — A ticket is defined as a thread rooted in a
   customer-initiated tweet. Brand-initiated threads (marketing tweets that
   received replies) are excluded entirely rather than kept with a null
   ticket-opener, since they don't represent a support interaction.
-- **2026-08-01** — DVC's remote is a local filesystem path outside the
+- **2026-08-13** — DVC's remote is a local filesystem path outside the
   repository (`C:\Users\Ander\.dvc-storage\supportiq`), not inside the
   OneDrive-synced project folder. The project directory is already
   cloud-synced by OneDrive; pointing DVC's cache at the same tree would
   double-sync large data files. This remote will move to cloud storage
   (S3/GCS) when the project reaches its cloud-deploy phase.
-- **2026-08-01** — Only `ticket_features.parquet` (83 MB, the final
+- **2026-08-13** — Only `ticket_features.parquet` (83 MB, the final
   feature-engineered artifact) is tracked with DVC, not the larger
   intermediate tiers (`tweets.parquet` at 458 MB, the landing-zone file).
   Those are fully reproducible by re-running the pipeline scripts against
   the same raw source, so versioning only the artifact that's expensive
   to regenerate and directly consumed downstream avoids duplicating
   hundreds of megabytes in the DVC cache for no reproducibility benefit.
+- **2026-08-13** — No budget for LLM-based labeling, so category/priority
+  labels are generated by weak supervision (keyword labeling functions)
+  instead of an LLM API. Category keywords are grounded in an exploratory
+  TF-IDF/KMeans clustering pass (with brand names and IDs stripped) rather
+  than picked arbitrarily; raw cluster assignment was rejected as the
+  label itself because roughly half the data falls into one
+  indistinguishable cluster.
+- **2026-08-13** — Priority scoring reads ticket text only, never
+  `first_response_seconds` or any other post-open outcome field, even
+  though response time is an intuitive urgency proxy. A label built from
+  an outcome the classifier might later be asked to predict (or that
+  correlates with what it predicts) leaks the answer into its own target.

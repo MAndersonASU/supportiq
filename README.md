@@ -71,7 +71,12 @@ Then run the pipeline stages in order:
 .venv\Scripts\python -m src.data.validate
 .venv\Scripts\python -m src.data.clean
 .venv\Scripts\python -m src.features.build_ticket_features
+.venv\Scripts\python -m src.models.label_tickets
 ```
+
+The dataset ships with no ground-truth category/priority labels. `label_tickets` applies weak supervision (keyword labeling functions) rather than calling a paid LLM API; the category keywords were grounded by an exploratory clustering pass — see `src/models/explore_categories.py` and `docs/architecture.md`.
+
+Phase 3's RAG assistant will use the Claude API — set `ANTHROPIC_API_KEY` in a local `.env` file (gitignored) when that stage is built.
 
 The final ticket-level feature set is version-controlled with DVC (see
 `data/processed/ticket_features.parquet.dvc`). Run `dvc pull` to fetch the
