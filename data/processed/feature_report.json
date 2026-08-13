@@ -1,0 +1,8 @@
+{
+  "total_tweets": 2811774,
+  "total_threads": 798197,
+  "tickets_extracted": 789547,
+  "tickets_with_brand_response": 789547,
+  "median_first_response_seconds": 1607.0,
+  "max_first_response_seconds": 241937519.0
+}

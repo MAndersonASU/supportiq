@@ -4,3 +4,4 @@ pyarrow==25.0.0
 pandera==0.32.1
 kaggle==2.2.4
 pytest==9.1.1
+dvc==3.67.1

@@ -36,7 +36,7 @@ Full breakdown in [`docs/architecture.md`](docs/architecture.md).
 ```
 src/
 ├── data/       ingestion, validation, cleaning
-├── features/   feature engineering
+├── features/   thread reconstruction, ticket-level feature engineering
 ├── models/     training, evaluation, model registry
 ├── ai/         embeddings, vector store, RAG, agent logic
 └── serving/    FastAPI application
@@ -46,7 +46,8 @@ data/
 ├── raw/        untouched source data (gitignored)
 ├── landing/    schema-conformant Parquet, pre-validation (gitignored)
 ├── validated/  business-rule-validated Parquet (gitignored; report tracked)
-└── processed/  cleaned, final dataset (gitignored; report tracked)
+└── processed/  cleaned tweets and the final ticket_features.parquet
+              (gitignored; reports and the DVC pointer file are tracked)
 ```
 
 ## Setup
@@ -69,7 +70,12 @@ Then run the pipeline stages in order:
 .venv\Scripts\python -m src.data.ingest
 .venv\Scripts\python -m src.data.validate
 .venv\Scripts\python -m src.data.clean
+.venv\Scripts\python -m src.features.build_ticket_features
 ```
+
+The final ticket-level feature set is version-controlled with DVC (see
+`data/processed/ticket_features.parquet.dvc`). Run `dvc pull` to fetch the
+exact version referenced by that pointer file from the configured remote.
 
 ## Status
 

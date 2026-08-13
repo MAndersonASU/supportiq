@@ -1,0 +1,5 @@
+outs:
+- md5: a11a6f2ebdd6e082a9e0a750dbaf1c5c
+  size: 82784041
+  hash: md5
+  path: ticket_features.parquet

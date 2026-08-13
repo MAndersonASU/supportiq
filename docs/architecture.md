@@ -9,8 +9,8 @@ SupportIQ is built as five pipeline stages, each owned by a `src/` module:
 
 | Stage | Module | Responsibility |
 |---|---|---|
-| Ingestion & validation | `src/data` | Load raw tickets, enforce a schema/data contract, reject or quarantine bad records |
-| Feature engineering | `src/features` | Derive model-ready features from cleaned ticket data |
+| Ingestion & validation | `src/data` | Load raw tweets, enforce a schema/data contract, reject or quarantine bad records |
+| Feature engineering | `src/features` | Reconstruct reply threads into ticket-level records and derive model-ready features |
 | ML triage model | `src/models` | Train/evaluate/register a category + priority classifier |
 | Retrieval + generation | `src/ai` | Embed tickets/KB articles, retrieve similar cases, generate a grounded draft response via Claude |
 | Serving | `src/serving` | FastAPI endpoints exposing classification + resolution-assistant functionality |
@@ -24,8 +24,8 @@ raw tweets (data/raw, untouched source data)
    → validation (business-rule checks via Pandera, quality metrics report)
    → validated tier (data/validated, business-rule-passed Parquet)
    → cleaning (text normalization, missing-value policy)
-   → processed dataset (data/processed, versioned with DVC)
-   → feature engineering
+   → processed dataset (data/processed)
+   → feature engineering (thread reconstruction → ticket_features.parquet, versioned with DVC)
    → ML training → model registry (MLflow)
    → embeddings → vector store
    → RAG pipeline (retrieval + Claude generation) → serving layer
@@ -80,6 +80,45 @@ responsibilities:
   this dataset, ingestion and validation already guarantee this, so the
   count is a defensive integrity check between pipeline stages, not
   something expected to fire.
+
+### Feature engineering (`src/features/build_ticket_features.py`)
+
+The processed dataset is tweet-level; a support ticket doesn't exist as a
+record until this stage builds one. A ticket is defined as a
+customer-initiated reply thread: the root tweet (no parent) has
+`inbound = True`. Threads rooted in a brand's own tweet (e.g. a marketing
+post that happened to get replies) are not tickets and are excluded
+entirely, not just their root row.
+
+Thread membership is resolved by following each tweet's
+`in_response_to_tweet_id` link back to its root, using an iterative
+find-with-path-compression (the same technique as union-find), so each
+tweet's root is computed once and reused rather than re-walked. A tweet
+whose parent ID isn't present in the dataset (a broken link, ~0.19% of
+responses per the validation report) is treated as its own root rather
+than failing.
+
+Each ticket aggregates its full thread into: message counts (customer vs.
+brand), the brand account that first responded, time to first response,
+and basic text statistics on the opening message.
+
+**Two findings from this stage that affect Phase 2 planning:**
+
+- `resolved` (did the thread get a brand reply) is constant — `True` for
+  100% of the 789,547 tickets extracted. This dataset was compiled by its
+  creators as customer/brand *exchange pairs*, so every included thread
+  already has a reply by construction. It isn't a usable ML feature or
+  target on this dataset as defined.
+- This dataset has no `category` or `priority` ground-truth labels. Phase
+  2's triage classifier will need a labeling strategy — heuristic/keyword
+  labels, unsupervised clustering with manual review, or a small
+  hand-labeled sample — before it can train a supervised model.
+
+`first_response_seconds` also has a long-tailed outlier (max ~242M
+seconds, ~7.7 years) alongside a reasonable median (~1,607 seconds, ~27
+minutes) — flagged in `feature_report.json` for Phase 2 to handle (likely
+capping or a log transform) rather than silently feeding the raw value
+into a model.
 
 Deduplication was deliberately left out. Validation's
 `duplicate_author_text_pairs` metric flagged ~4,700 rows, but inspecting
@@ -140,3 +179,20 @@ history.
   interactions with unique `tweet_id`s (templated support replies to
   different customers), not duplicate records — confirmed by inspecting a
   sample before writing any drop logic against the metric.
+- **2026-08-01** — A ticket is defined as a thread rooted in a
+  customer-initiated tweet. Brand-initiated threads (marketing tweets that
+  received replies) are excluded entirely rather than kept with a null
+  ticket-opener, since they don't represent a support interaction.
+- **2026-08-01** — DVC's remote is a local filesystem path outside the
+  repository (`C:\Users\Ander\.dvc-storage\supportiq`), not inside the
+  OneDrive-synced project folder. The project directory is already
+  cloud-synced by OneDrive; pointing DVC's cache at the same tree would
+  double-sync large data files. This remote will move to cloud storage
+  (S3/GCS) when the project reaches its cloud-deploy phase.
+- **2026-08-01** — Only `ticket_features.parquet` (83 MB, the final
+  feature-engineered artifact) is tracked with DVC, not the larger
+  intermediate tiers (`tweets.parquet` at 458 MB, the landing-zone file).
+  Those are fully reproducible by re-running the pipeline scripts against
+  the same raw source, so versioning only the artifact that's expensive
+  to regenerate and directly consumed downstream avoids duplicating
+  hundreds of megabytes in the DVC cache for no reproducibility benefit.
