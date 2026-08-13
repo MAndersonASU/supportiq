@@ -37,6 +37,7 @@ Full breakdown in [`docs/architecture.md`](docs/architecture.md).
 src/
 ├── data/       ingestion, validation, cleaning
 ├── features/   thread reconstruction, ticket-level feature engineering
+├── ai/         knowledge base, vector index, RAG resolution assistant
 ├── models/     training, evaluation, model registry
 ├── ai/         embeddings, vector store, RAG, agent logic
 └── serving/    FastAPI application
@@ -50,6 +51,7 @@ data/
               (gitignored; reports and the DVC pointer file are tracked)
 models/         trained classifier artifacts (gitignored, reproducible via train_classifier)
 mlflow.db       local MLflow tracking store (gitignored)
+data/vector_store/  local Chroma vector index (gitignored, reproducible via build_vector_index)
 ```
 
 ## Setup
@@ -80,6 +82,15 @@ Then run the pipeline stages in order:
 ```
 
 Registered models and their `staging`/`production` aliases are visible via `mlflow ui --backend-store-uri sqlite:///mlflow.db`, under the Models tab.
+
+The RAG resolution assistant runs entirely locally — no external API calls. It needs [Ollama](https://ollama.com) installed with a local model pulled:
+
+```
+ollama pull llama3.2:3b
+.venv\Scripts\python -m src.ai.build_knowledge_base
+.venv\Scripts\python -m src.ai.build_vector_index
+.venv\Scripts\python -m src.ai.rag_assistant "my order never arrived"
+```
 
 The dataset ships with no ground-truth category/priority labels. `label_tickets` applies weak supervision (keyword labeling functions) rather than calling a paid LLM API; the category keywords were grounded by an exploratory clustering pass — see `src/models/explore_categories.py` and `docs/architecture.md`.
 

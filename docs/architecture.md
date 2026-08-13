@@ -12,7 +12,7 @@ SupportIQ is built as five pipeline stages, each owned by a `src/` module:
 | Ingestion & validation | `src/data` | Load raw tweets, enforce a schema/data contract, reject or quarantine bad records |
 | Feature engineering | `src/features` | Reconstruct reply threads into ticket-level records and derive model-ready features |
 | ML triage model | `src/models` | Train/evaluate/register a category + priority classifier |
-| Retrieval + generation | `src/ai` | Embed tickets/KB articles, retrieve similar cases, generate a grounded draft response via Claude |
+| Retrieval + generation | `src/ai` | Embed tickets/KB articles, retrieve similar cases, generate a grounded draft response via a local LLM |
 | Serving | `src/serving` | FastAPI endpoints exposing classification + resolution-assistant functionality |
 
 ## Data flow
@@ -27,8 +27,9 @@ raw tweets (data/raw, untouched source data)
    → processed dataset (data/processed)
    → feature engineering (thread reconstruction → ticket_features.parquet, versioned with DVC)
    → ML training → model registry (MLflow)
-   → embeddings → vector store
-   → RAG pipeline (retrieval + Claude generation) → serving layer
+   → knowledge base (customer message + resolution pairs, reconstructed from thread data)
+   → embeddings (local sentence-transformers) → vector store (local Chroma)
+   → RAG pipeline (retrieval + local LLM generation via Ollama) → serving layer
 ```
 
 ### Ingestion (`src/data/ingest.py`, `src/data/schema.py`)
@@ -246,6 +247,52 @@ is a pure function, kept separate from the MLflow read/write calls
 around it, so the policy itself is fully unit-testable without a live
 registry.
 
+### Knowledge base (`src/ai/build_knowledge_base.py`)
+
+The RAG assistant needs actual past resolutions to ground its drafts,
+not just ticket metadata. `ticket_features.parquet` carries reply counts
+and timing but not reply text, so this stage recomputes thread structure
+against the full cleaned tweet dataset and pairs each labeled ticket's
+opening message with the first brand reply in its thread by timestamp.
+All 789,547 tickets resolved successfully — consistent with the earlier
+finding that this dataset guarantees a reply by construction.
+
+### Vector index (`src/ai/build_vector_index.py`)
+
+Embeds a capped, per-category sample of the knowledge base with a local
+`sentence-transformers` model (`all-MiniLM-L6-v2`) and stores it in a
+persistent local Chroma collection — no external embeddings API.
+Embedding the full 789,547-entry knowledge base measured at roughly an
+hour on CPU, for limited benefit: the dataset is 77% one category
+(General Inquiry), so a proportional embed would produce a retrieval
+index dominated by one class. Capping each category at 15,000 entries
+(smaller categories keep everything they have) reduced the indexed set
+to 96,536 entries and the build to about nine minutes, while guaranteeing
+every category is well represented for retrieval.
+
+### RAG resolution assistant (`src/ai/rag_assistant.py`)
+
+Given a new ticket's text, embeds it with the same local model, retrieves
+the top-k nearest past tickets from the vector index, and prompts a
+local LLM (Llama 3.2 3B via Ollama) to draft a reply grounded in those
+examples — citing which past ticket(s) informed it. No network call
+leaves the machine.
+
+A real grounding failure showed up on the first live test and was fixed
+before treating the pipeline as done: the model copied a tracking URL
+verbatim from a retrieved example into its draft for a different
+customer. The prompt now explicitly instructs the model not to copy
+links, order numbers, case numbers, or usernames from the examples,
+since those belong to other customers — write a new reply in the same
+style instead. Re-running the same query after the fix produced a clean
+draft with no copied identifiers.
+
+Known limitation, not fixed: the model sometimes echoes structural
+labels from the prompt (e.g. `Support reply:`) into its own output — a
+formatting literalism typical of a 3B-parameter model, not a grounding
+or factual problem. Left as-is rather than over-engineering prompt
+formatting for a portfolio-scale assistant.
+
 ## Design decisions log
 
 Decisions are recorded here as they're made, with the reasoning, so the
@@ -359,3 +406,23 @@ history.
   can replace it. A fixed, code-defined threshold applied uniformly is
   the point — it stops "the model works" from being a subjective call
   made per run.
+- **2026-08-13** — Phase 3's GenAI layer runs entirely on local, free
+  tools (`sentence-transformers` for embeddings, Chroma for the vector
+  store, Llama 3.2 3B via Ollama for generation) instead of the Claude
+  API originally planned. Same constraint as the Phase 2 labeling
+  pivot: no billing credits on the account, and purchasing them is a
+  real-money decision outside this project's scope. The vector store
+  choice (Chroma) was already local in the original plan; only the
+  embedding and generation steps changed.
+- **2026-08-13** — Vector index caps each category at 15,000 entries
+  rather than embedding the full 789,547-ticket knowledge base. The full
+  embed measured at roughly an hour on CPU for a dataset that is 77% one
+  category — a proportional index would be dominated by General Inquiry
+  and under-serve retrieval for every other category. Capping keeps
+  every category represented and cuts the build to under ten minutes.
+- **2026-08-13** — The RAG prompt explicitly forbids copying links,
+  order numbers, case numbers, or usernames from retrieved examples,
+  added after the model copied a real tracking URL from one customer's
+  resolution into a draft for a different customer on the first live
+  test. Caught by actually running the pipeline against a real query
+  before considering it done, not by inspecting the code.

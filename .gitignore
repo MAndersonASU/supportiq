@@ -25,7 +25,12 @@ data/processed/*
 !data/processed/model_evaluation_report.json
 !data/processed/tuning_report.json
 !data/processed/registry_report.json
+!data/processed/knowledge_base_report.json
+!data/processed/vector_index_report.json
 !data/processed/*.dvc
+
+# Local vector store (reproducible via src/ai/build_vector_index.py)
+data/vector_store/
 
 # pytest cache
 .pytest_cache/

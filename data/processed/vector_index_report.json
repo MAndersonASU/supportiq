@@ -1,0 +1,14 @@
+{
+  "embedding_model": "all-MiniLM-L6-v2",
+  "knowledge_base_size": 789547,
+  "indexed_size": 96536,
+  "category_counts": {
+    "Billing & Payments": 15000,
+    "Customer Service Complaint": 15000,
+    "General Inquiry": 15000,
+    "Technical Support": 15000,
+    "Order / Delivery / Refund": 15000,
+    "Account Access": 12044,
+    "Product Complaint": 9492
+  }
+}
