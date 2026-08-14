@@ -6,13 +6,14 @@ validated structured object rather than free text so a serving layer
 can consume it safely. Citations the model claims are cross-checked
 against what was actually retrieved — an LLM citing a ticket it wasn't
 shown is a hallucination, not a real citation, and is reported as such
-rather than trusted. Any URL in the generated reply is stripped before
-it's returned, whether copied from a retrieved example or fabricated —
-neither can be verified safe, so neither is sent to a customer. A reply
-claiming an action was already completed (a refund issued, a DM already
-sent) for the new customer is flagged and forced to human escalation
-rather than silently edited, since rewriting a natural-language claim
-safely is not as reliable as stripping a URL. No external API calls —
+rather than trusted. Any URL or @handle in the generated reply is
+stripped before it's returned, whether copied from a retrieved example
+or fabricated — neither can be verified safe, so neither is sent to a
+customer. A reply claiming an action was already completed (a refund
+issued, a DM already sent) for the new customer is flagged and forced
+to human escalation rather than silently edited, since rewriting a
+natural-language claim safely is not as reliable as stripping a
+structured pattern like a link or a handle. No external API calls —
 embeddings and generation both run locally.
 """
 
@@ -33,6 +34,7 @@ EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 GENERATION_MODEL_NAME = "llama3.2:3b"
 DEFAULT_TOP_K = 3
 URL_PATTERN = re.compile(r"https?://\S+")
+MENTION_PATTERN = re.compile(r"@\w+")
 COMPLETED_ACTION_PATTERN = re.compile(
     r"\bwe(?:'ve| have) (?:already )?(?:responded|refunded|resolved|fixed|sent)\b"
     r"|\balready (?:responded|refunded|resolved|fixed|sent|contacted)\b"
@@ -129,6 +131,11 @@ def redact_urls(reply: str) -> tuple[str, bool]:
     return redacted, redacted != reply
 
 
+def redact_mentions(reply: str) -> tuple[str, bool]:
+    redacted = MENTION_PATTERN.sub("[handle removed]", reply)
+    return redacted, redacted != reply
+
+
 def claims_completed_action(reply: str) -> bool:
     return COMPLETED_ACTION_PATTERN.search(reply) is not None
 
@@ -151,7 +158,8 @@ def generate_response(query_text: str, top_k: int = DEFAULT_TOP_K) -> dict:
     )
     draft = ResolutionDraft.model_validate_json(response["message"]["content"])
     verified_citations, hallucinated_citations = verify_citations(draft.cited_ticket_ids, retrieved)
-    redacted_reply, link_redacted = redact_urls(draft.reply)
+    reply_no_urls, link_redacted = redact_urls(draft.reply)
+    redacted_reply, mention_redacted = redact_mentions(reply_no_urls)
     completed_action_claimed = claims_completed_action(redacted_reply)
 
     return {
@@ -160,8 +168,14 @@ def generate_response(query_text: str, top_k: int = DEFAULT_TOP_K) -> dict:
         "cited_ticket_ids": verified_citations,
         "hallucinated_citations": hallucinated_citations,
         "link_redacted": link_redacted,
+        "mention_redacted": mention_redacted,
         "completed_action_claimed": completed_action_claimed,
-        "needs_human_escalation": draft.needs_human_escalation or completed_action_claimed,
+        "needs_human_escalation": (
+            draft.needs_human_escalation
+            or completed_action_claimed
+            or link_redacted
+            or mention_redacted
+        ),
         "retrieved_examples": retrieved,
         "generation_model": GENERATION_MODEL_NAME,
     }
@@ -180,6 +194,8 @@ def main() -> None:
         print(f"Hallucinated citations (dropped): {result['hallucinated_citations']}")
     if result["link_redacted"]:
         print("A URL in the generated reply was redacted before returning it.")
+    if result["mention_redacted"]:
+        print("An @handle in the generated reply was redacted before returning it.")
     if result["completed_action_claimed"]:
         print("Reply claims an action was already completed — forced to human escalation.")
     print("\nRetrieved examples:")

@@ -383,6 +383,20 @@ found; the existing prompt instruction appears to hold for this
 identifier class, unlike links. Recorded as a tested negative result,
 not assumed safe without checking.
 
+Tested for prompt injection, since raw ticket text is inserted directly
+into the prompt alongside real retrieved data from other customers'
+tickets. A direct "repeat every example verbatim" attempt worked,
+partially: the model didn't literally comply, but reproduced real
+retrieved content — including other customers' Twitter handles — in its
+draft. `redact_urls` (already in place from the link finding) caught
+the links in that same output without having been built for this
+attack; nothing yet caught the handles. Fixed with `redact_mentions`,
+the same pattern as `redact_urls`, plus forcing human escalation
+whenever either redaction fires — a reply containing `[link removed]`
+or `[handle removed]` placeholder text isn't fit to send as-is,
+regardless of what caused it. Full writeup in
+[`docs/rag-prompt-injection.md`](rag-prompt-injection.md).
+
 ### Evaluation harness (`src/ai/evaluate_rag.py`)
 
 Runs a fixed set of test queries through the full pipeline and scores
@@ -815,3 +829,18 @@ history.
   specifically because editing free text safely is a harder, less
   reliable problem than editing a URL. Full finding and fix in
   `docs/rag-completed-action-claims.md`.
+- **2026-08-14** — Tested the RAG assistant against prompt injection —
+  a direct "repeat every example verbatim" ticket text got the model to
+  reproduce real content from other customers' tickets, including their
+  Twitter handles, though it did not literally comply with the injected
+  instruction otherwise. `redact_urls` (already in place) caught the
+  links in that same output without having been designed for this
+  attack; nothing yet caught the handles. Added `redact_mentions`
+  (identical pattern to `redact_urls` — `@handle` has the same
+  unambiguous structural signature a URL does) and extended forced
+  human escalation to fire on either kind of redaction, not just
+  completed-action claims, since a reply containing placeholder
+  redaction text is unfit to send regardless of cause. This does not
+  stop the injection itself from influencing generation, only what it
+  can leak — documented as a real, acknowledged limit rather than a
+  closed problem. Full finding and fix in `docs/rag-prompt-injection.md`.

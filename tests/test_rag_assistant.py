@@ -7,7 +7,13 @@ if it was actually retrieved — anything else is a hallucination, not a
 real citation).
 """
 
-from src.ai.rag_assistant import build_prompt, claims_completed_action, redact_urls, verify_citations
+from src.ai.rag_assistant import (
+    build_prompt,
+    claims_completed_action,
+    redact_mentions,
+    redact_urls,
+    verify_citations,
+)
 
 
 def make_example(**overrides: object) -> dict:
@@ -130,3 +136,26 @@ def test_claims_completed_action_detects_refund_issued():
 
 def test_claims_completed_action_ignores_offers_to_help():
     assert claims_completed_action("Can you please DM us so we can look into this?") is False
+
+
+def test_redact_mentions_removes_handle():
+    reply, redacted = redact_mentions("@428091 Oh no! How can we help today?")
+
+    assert "@428091" not in reply
+    assert "[handle removed]" in reply
+    assert redacted is True
+
+
+def test_redact_mentions_leaves_plain_text_unchanged():
+    reply, redacted = redact_mentions("Sorry to hear that, please DM us the details")
+
+    assert reply == "Sorry to hear that, please DM us the details"
+    assert redacted is False
+
+
+def test_redact_mentions_handles_multiple_handles():
+    reply, redacted = redact_mentions("@700420 hello\n\n@777348 more text")
+
+    assert "@700420" not in reply
+    assert "@777348" not in reply
+    assert redacted is True

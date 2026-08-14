@@ -46,15 +46,18 @@ correct because the model was told to behave.
   drafts a starting reply grounded in them.
 - **Safety-checked by design, not by trust.** Every AI-drafted claim is
   verified before it's shown to anyone: citations the model claims are
-  checked against what was actually retrieved, any link the model
-  generates is stripped rather than assumed safe, and a reply claiming
-  an action was already taken (a refund issued, a DM already sent) is
-  routed to a human instead of going out unreviewed. All three
-  protections exist because I found the underlying problems by testing
-  the running system and fixed them — see
-  [`docs/rag-link-fabrication.md`](docs/rag-link-fabrication.md) and
-  [`docs/rag-completed-action-claims.md`](docs/rag-completed-action-claims.md)
-  for two examples, start to finish.
+  checked against what was actually retrieved, any link or customer
+  handle the model generates is stripped rather than assumed safe, and
+  a reply claiming an action was already taken (a refund issued, a DM
+  already sent) — or one that had to be redacted — is routed to a human
+  instead of going out unreviewed. Every one of these protections exists
+  because I found the underlying problem by testing the running system,
+  including a real prompt-injection attempt that pulled another
+  customer's data into a draft reply — see
+  [`docs/rag-link-fabrication.md`](docs/rag-link-fabrication.md),
+  [`docs/rag-completed-action-claims.md`](docs/rag-completed-action-claims.md),
+  and [`docs/rag-prompt-injection.md`](docs/rag-prompt-injection.md)
+  for three examples, start to finish.
 
 ## What I built
 
