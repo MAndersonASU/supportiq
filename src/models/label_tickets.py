@@ -69,6 +69,8 @@ URGENCY_KEYWORDS = [
     "urgent", "immediately", "asap", "emergency", "right now", "cancel my",
     "cancelling", "unacceptable", "furious", "never again", "scam",
     "fraud", "stolen", "lawsuit", "legal action", "final warning",
+    "charged twice", "double charged", "unauthorized charge",
+    "fraudulent charge", "overcharged",
 ]
 
 

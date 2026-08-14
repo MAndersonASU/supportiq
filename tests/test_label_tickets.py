@@ -56,3 +56,7 @@ def test_medium_priority_for_single_urgency_signal():
 def test_high_priority_for_multiple_urgency_signals():
     text = "This is UNACCEPTABLE!!! I am FURIOUS and want this fixed immediately!"
     assert assign_priority(text) == "High"
+
+
+def test_medium_priority_for_billing_severity_language():
+    assert assign_priority("My card was charged twice this month") == "Medium"

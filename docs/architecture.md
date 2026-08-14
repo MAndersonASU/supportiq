@@ -202,6 +202,25 @@ outcome field like `first_response_seconds`, since deriving a label from
 an outcome a future model might predict would leak that outcome into its
 own target.
 
+The original urgency keyword list captured emotional-intensity language
+(`furious`, `unacceptable`, `scam`) but nothing about financial harm
+stated calmly — "my card was charged twice this month" scored zero
+urgency signals and landed on Low, even though a real support team would
+treat an unexplained double charge as worth escalating regardless of
+tone. Caught by triaging that exact ticket through the live API, not by
+reviewing the keyword list in the abstract. Added five financial-harm
+phrases (`charged twice`, `double charged`, `unauthorized charge`,
+`fraudulent charge`, `overcharged`) to `URGENCY_KEYWORDS`, re-ran
+labeling, retraining, tuning, and registry promotion in sequence — the
+same cascade any weak-supervision rule change requires, since a labeling
+change invalidates every downstream artifact trained on the old labels.
+The shift was small and localized as expected: 914 of 789,547 tickets
+moved from Low to Medium priority, category labels were untouched (only
+`URGENCY_KEYWORDS` changed), and aggregate priority test macro F1 moved
+from 0.428 to 0.429 — a real fix for a specific blind spot, not a
+change large enough to move the aggregate number, which is the correct
+outcome for a targeted correction touching 0.1% of the dataset.
+
 ### Baseline classifiers (`src/models/split_data.py`, `src/models/train_classifier.py`)
 
 Two separate TF-IDF + logistic regression models — one for `category`,
@@ -739,3 +758,13 @@ history.
   point. A build-only check still catches the class of failure most
   likely to regress silently: a Dockerfile or `requirements-serving.txt`
   change that breaks the image build itself.
+- **2026-08-13** — Added five financial-harm phrases to
+  `URGENCY_KEYWORDS` after live-testing the deployed API surfaced a
+  calmly-worded double-charge ticket scoring Low priority. Treated as a
+  labeling-rule change, not a quick patch: re-ran labeling, baseline
+  training, tuning, and registry promotion in full, since every one of
+  those artifacts was trained on the old labels. 914 of 789,547 tickets
+  (0.1%) moved from Low to Medium; category labels and the aggregate
+  macro F1 for both targets were essentially unchanged, which is the
+  expected signature of a correctly-scoped, narrow fix rather than an
+  accidental broad one.

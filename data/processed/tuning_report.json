@@ -106,71 +106,71 @@
           "C": 0.1,
           "class_weight": null
         },
-        "val_macro_f1": 0.37603931759131254
+        "val_macro_f1": 0.379016702247192
       },
       {
         "params": {
           "C": 0.1,
           "class_weight": "balanced"
         },
-        "val_macro_f1": 0.42735652912454497
+        "val_macro_f1": 0.42840285794016686
       },
       {
         "params": {
           "C": 1.0,
           "class_weight": null
         },
-        "val_macro_f1": 0.4051274865087439
+        "val_macro_f1": 0.40940623730661496
       },
       {
         "params": {
           "C": 1.0,
           "class_weight": "balanced"
         },
-        "val_macro_f1": 0.42043336499606426
+        "val_macro_f1": 0.4207579673988699
       },
       {
         "params": {
           "C": 10.0,
           "class_weight": null
         },
-        "val_macro_f1": 0.41848276046229377
+        "val_macro_f1": 0.4189865324075444
       },
       {
         "params": {
           "C": 10.0,
           "class_weight": "balanced"
         },
-        "val_macro_f1": 0.41132213556075575
+        "val_macro_f1": 0.41192837841239577
       }
     ],
     "best_params": {
       "C": "0.1",
       "class_weight": "balanced"
     },
-    "best_val_macro_f1": 0.42735652912454497,
+    "best_val_macro_f1": 0.42840285794016686,
     "test_metrics": {
-      "accuracy": 0.5758867883106904,
-      "macro_f1": 0.427987545884863,
-      "weighted_f1": 0.6263502040272048,
+      "accuracy": 0.5766467116428698,
+      "macro_f1": 0.42890684354318576,
+      "weighted_f1": 0.6268123933652743,
       "per_class": {
         "High": {
-          "precision": 0.11896702544403454,
-          "recall": 0.4834621329211746,
-          "f1": 0.1909471049659677,
-          "support": 6470
+          "precision": 0.11921058635637691,
+          "recall": 0.4835724201758445,
+          "f1": 0.19126933284524572,
+          "support": 6483
         },
         "Low": {
-          "precision": 0.8572678165858449,
-          "recall": 0.6294848102406924,
-          "f1": 0.7259271772747355,
-          "support": 88744
+          "precision": 0.8569347766091197,
+          "recall": 0.6308951348910712,
+          "f1": 0.7267443372428679,
+          "support": 88590
         },
         "Medium": {
-          "precision": 0.34152580071174377,
-          "recall": 0.3967871140014643,
-          "f1": 0.36708835541388585,
-          "support": 23219
+          "precision": 0.3443688923568536,
+          "recall": 0.39674657534246577,
+          "f1": 0.3687068605414437,
+          "support": 23360
         }
       }
     }
