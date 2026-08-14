@@ -37,8 +37,6 @@ def get_classifier(target_col: str):
     if target_col not in _classifiers:
         mlflow.set_tracking_uri(f"sqlite:///{MLFLOW_DB_PATH}")
         model_name = REGISTERED_MODEL_NAMES[target_col]
-        # Metadata-only lookup: confirms a production version is registered
-        # and raises if not, without downloading any artifact.
         MlflowClient().get_model_version_by_alias(model_name, "production")
 
         model_path = MODEL_DIR / f"{target_col}_classifier.joblib"

@@ -106,13 +106,18 @@ design and every engineering decision behind it.
   patched around.
 - **RAG resolution assistant**: grounded replies over 96,536 embedded
   past resolutions, with citation claims cross-checked against what was
-  actually retrieved — 16.7% hallucination rate on a fixed 6-query
-  evaluation set, caught and reported rather than assumed to be zero.
-- **Five real bugs, one false-positive test result, and one
-  systematically-measured model limitation** — all caught by actually
-  running the built system, not by reading the code. Full catalogue in
+  actually retrieved. Hallucination rate is tracked automatically on a
+  fixed 6-query set rather than assumed to be zero — it isn't a fixed
+  number (0–17% across repeated runs, since the local model's
+  generation isn't deterministic), and that variance is itself part of
+  what the evaluation harness surfaces.
+- **A running record of real bugs found by actually testing the
+  system**, not by reading the code — including a false-positive test
+  result that turned out to be a stray process, not a working
+  container, and a classifier limitation measured directly rather than
+  assumed from its training metric. Full catalogue in
   [`docs/architecture.md`](docs/architecture.md#design-decisions-log),
-  each with its own writeup: reproduction data, root cause, fix, and
+  each entry with its own reproduction data, root cause, fix, and
   post-fix verification, not just a commit message.
 
 ## Architecture

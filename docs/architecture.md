@@ -233,8 +233,8 @@ imbalanced target) is reused for both models, so a ticket is never in
 train for one target and test for the other.
 
 **Read the category metric with its actual meaning, not its face value.**
-Test macro F1 is 0.977, uniformly high across all seven classes
-(0.94–0.997). That is the signature of a model reconstructing a
+Test macro F1 is 0.983, uniformly high across all seven classes
+(0.955–0.998). That is the signature of a model reconstructing a
 deterministic function, not evidence of learned semantic understanding —
 expected, because word-level TF-IDF features overlap almost completely
 with the exact keyword phrases that define the labels, and there is no
@@ -242,7 +242,7 @@ independent ground truth to check real generalization against. This
 number answers "did the model recover the labeling rule," not "does the
 model understand support ticket categories."
 
-**Priority (test macro F1 0.421) is weaker for a specific, diagnosable
+**Priority (test macro F1 0.425) is weaker for a specific, diagnosable
 reason, not because it's a harder problem in the abstract.** Part of the
 priority label depends on exclamation marks and ALL-CAPS words, but
 scikit-learn's default `TfidfVectorizer` lowercases text and strips
@@ -251,8 +251,8 @@ the model. Feeding those same signals in as explicit features would only
 reproduce category's circularity under a different name, so this gap is
 documented rather than papered over. Separately,
 `class_weight="balanced"` is pushing hard on the rare High-priority
-class: precision there is 0.115 (many false positives) against a recall
-of 0.447 — a real, tunable cost of balancing against a distribution this
+class: precision there is 0.117 (many false positives) against a recall
+of 0.451 — a real, tunable cost of balancing against a distribution this
 skewed (75% Low / 20% Medium / 5% High), left for the hyperparameter-
 tuning stage rather than adjusted ad hoc here.
 
@@ -266,8 +266,8 @@ Model selection uses validation macro F1 exclusively; the test set is
 scored exactly once per target, after the winning configuration is
 already fixed, so tuning can't leak into the reported number.
 
-Category's tuned result (test macro F1 0.987) is only marginally above
-the untuned baseline (0.977) — consistent with the earlier finding that
+Category's tuned result (test macro F1 0.990) is only marginally above
+the untuned baseline (0.983) — consistent with the earlier finding that
 this task is close to its ceiling regardless of configuration, since the
 model is reconstructing a deterministic rule rather than learning a
 harder decision boundary.
@@ -275,8 +275,8 @@ harder decision boundary.
 Priority's High-precision problem does not resolve through tuning.
 `class_weight="balanced"` wins on validation macro F1 at every
 regularization strength tested but one, and the tuned model's
-High-priority precision (0.119) is statistically the same as the
-untuned baseline (0.115) regardless of `C`. That rules out "the wrong
+High-priority precision (0.121) is statistically the same as the
+untuned baseline (0.117) regardless of `C`. That rules out "the wrong
 hyperparameter" as the explanation: macro F1 consistently rewards
 balanced weighting despite its precision cost on the rare class, and the
 real fix is a feature or evaluation-strategy change (probability
@@ -288,13 +288,13 @@ grid.
 
 Registers each tuned classifier as a new version in the MLflow Model
 Registry and applies an explicit, code-defined promotion policy via
-registry aliases — `staging` and `production` — rather than the
+registry aliases — `staging` and `production` — rather than
 MLflow's older stage-based transitions, which are legacy in the
 installed version.
 
 A version reaches `staging` only if it beats its majority-class baseline
 by at least 0.05 absolute macro F1; both classifiers cleared this by a
-wide margin (category: +0.86, priority: +0.14). It reaches `production`
+wide margin (category: +0.87, priority: +0.14). It reaches `production`
 only if it also matches or beats whatever is currently in production —
 or there is no incumbent yet, which was the case for both models' first
 versions here. The comparison and promotion decision (`decide_promotion`)
@@ -430,6 +430,14 @@ similarity was 0.51 — a moderate, not extreme, score. A very high
 groundedness score would actually be suspicious here: it would suggest
 the model is copying retrieved text rather than paraphrasing it, the
 exact failure the citation-copying fix above addressed.
+
+Re-running the same six queries later showed the hallucination rate is
+not a fixed number — repeated runs came back 0/6 and 1/6 depending on
+generation, since Ollama's output here isn't seeded or deterministic.
+On a 6-query set, that's a real and expected consequence of a small
+sample size, not a regression or an inconsistency to explain away — the
+harness's job is to surface that variance, not report a single number
+as if it were stable.
 
 ### Triage pipeline (`src/ai/triage_pipeline.py`)
 

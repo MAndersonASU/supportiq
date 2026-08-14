@@ -45,12 +45,10 @@ def test_unmatched_text_falls_back_to_general_inquiry():
 
 
 def test_substring_false_positive_is_avoided_by_word_boundaries():
-    # "order" should not match inside "disorder" or "reorder"
     assert assign_category("I have a sleep disorder and need advice") == "General Inquiry"
 
 
 def test_typographic_apostrophe_still_matches_contraction_keywords():
-    # Twitter text commonly uses U+2019 (’) instead of a plain ASCII apostrophe
     assert assign_category("still won’t load, this app is broken") == "Technical Support"
 
 
