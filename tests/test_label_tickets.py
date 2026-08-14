@@ -23,6 +23,15 @@ def test_technical_support_keywords_route_correctly():
     assert assign_category("The app keeps crashing and won't load after the update") == "Technical Support"
 
 
+def test_technical_support_matches_freeze_tense_variants():
+    assert assign_category("the app froze up on me again during checkout") == "Technical Support"
+    assert assign_category("keeps freezing whenever i open the settings page") == "Technical Support"
+
+
+def test_technical_support_matches_boot_failure_phrasing():
+    assert assign_category("this thing just won't boot up anymore") == "Technical Support"
+
+
 def test_product_complaint_keywords_route_correctly():
     assert assign_category("The item arrived damaged and is clearly defective") == "Product Complaint"
 

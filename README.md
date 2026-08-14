@@ -93,12 +93,13 @@ design and every engineering decision behind it.
   reply threads, cleaned and feature-engineered through a validated
   pipeline (data contract enforced at ingestion, business rules enforced
   separately, both reported and tracked).
-- **Category classifier**: 0.987 test macro F1. Reflects the model
-  reconstructing the weak-supervision labeling rule closely (there's no
-  independent ground truth to check generalization against) — the
-  honest read on this number, not just the number itself, is in
-  `docs/architecture.md`.
-- **Priority classifier**: 0.429 test macro F1, with a diagnosed,
+- **Category classifier**: 0.990 test macro F1 on its training
+  distribution, but a measured 67% miss rate (10 of 15) against
+  realistically-phrased tickets that don't match the labeling rule's
+  exact keywords — the gap between the two numbers is the real story,
+  and it's in [`docs/category-classifier-blind-spots.md`](docs/category-classifier-blind-spots.md),
+  not hidden behind the headline metric.
+- **Priority classifier**: 0.431 test macro F1, with a diagnosed,
   unfixed cause: part of the priority label depends on punctuation/
   capitalization that the default TF-IDF tokenizer strips before the
   model ever sees it. Documented as a real limitation rather than
@@ -107,13 +108,12 @@ design and every engineering decision behind it.
   past resolutions, with citation claims cross-checked against what was
   actually retrieved — 16.7% hallucination rate on a fixed 6-query
   evaluation set, caught and reported rather than assumed to be zero.
-- **Multiple real bugs, one false-positive test result, and a documented
-  AI-safety finding** — all caught by actually running the built system,
-  not by reading the code. Full catalogue in
-  [`docs/architecture.md`](docs/architecture.md#design-decisions-log);
-  the link-fabrication finding has its own writeup at
-  [`docs/rag-link-fabrication.md`](docs/rag-link-fabrication.md),
-  including a measured reproduction rate and post-fix verification.
+- **Five real bugs, one false-positive test result, and one
+  systematically-measured model limitation** — all caught by actually
+  running the built system, not by reading the code. Full catalogue in
+  [`docs/architecture.md`](docs/architecture.md#design-decisions-log),
+  each with its own writeup: reproduction data, root cause, fix, and
+  post-fix verification, not just a commit message.
 
 ## Architecture
 

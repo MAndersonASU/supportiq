@@ -48,8 +48,9 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     ],
     "Technical Support": [
         "not working", "broken", "glitch", "bug", "crash", "crashed",
-        "error", "won't load", "wont load", "outage", "down again",
-        "reset", "reinstall", "freeze", "frozen", "lagging",
+        "crashing", "error", "won't load", "wont load", "won't boot",
+        "wont boot", "outage", "down again", "reset", "reinstall",
+        "freeze", "froze", "freezing", "frozen", "lagging",
         "connection issue", "wifi",
     ],
     "Product Complaint": [

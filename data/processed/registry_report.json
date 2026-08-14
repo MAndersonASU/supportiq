@@ -1,18 +1,18 @@
 {
   "category": {
     "model_name": "ticket-category-classifier",
-    "version": 3,
-    "test_macro_f1": 0.9866002119324487,
-    "baseline_macro_f1": 0.12464844663732748,
+    "version": 4,
+    "test_macro_f1": 0.9904909522044278,
+    "baseline_macro_f1": 0.12420024070342679,
     "outcome": "promoted-to-production",
     "reason": "matched or beat incumbent production macro F1 (0.9866)"
   },
   "priority": {
     "model_name": "ticket-priority-classifier",
-    "version": 3,
-    "test_macro_f1": 0.42890684354318576,
-    "baseline_macro_f1": 0.2852823116272105,
+    "version": 4,
+    "test_macro_f1": 0.430643303140426,
+    "baseline_macro_f1": 0.2857570158384029,
     "outcome": "promoted-to-production",
-    "reason": "matched or beat incumbent production macro F1 (0.4280)"
+    "reason": "matched or beat incumbent production macro F1 (0.4289)"
   }
 }

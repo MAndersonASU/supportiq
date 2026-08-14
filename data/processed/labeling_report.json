@@ -1,13 +1,13 @@
 {
   "tickets_labeled": 789547,
   "category_distribution": {
-    "General Inquiry": 611027,
-    "Order / Delivery / Refund": 67608,
-    "Technical Support": 38829,
-    "Customer Service Complaint": 25541,
-    "Billing & Payments": 25006,
-    "Account Access": 12044,
-    "Product Complaint": 9492
+    "General Inquiry": 607146,
+    "Order / Delivery / Refund": 67604,
+    "Technical Support": 42804,
+    "Customer Service Complaint": 25516,
+    "Billing & Payments": 25002,
+    "Account Access": 12039,
+    "Product Complaint": 9436
   },
   "priority_distribution": {
     "Low": 591803,

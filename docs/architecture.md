@@ -448,10 +448,35 @@ the category keyword pattern `\bcrash\b` requires a word boundary
 immediately after "crash" and doesn't match "crashing" — and since the
 classifier reconstructs the labeling rule near-perfectly (see the
 baseline classifier section above), it inherited the rule's blind spot
-along with its accuracy. Not fixed here — doing so would mean
-re-running all of Phase 2's training, tuning, and registry steps for a
-single keyword-matching edge case — but recorded as concrete evidence
-supporting that earlier finding rather than an isolated surprise.
+along with its accuracy. Not fixed at the time — doing so in isolation
+would have meant re-running all of Phase 2's training, tuning, and
+registry steps for a single keyword-matching edge case — but recorded
+as concrete evidence supporting that earlier finding rather than an
+isolated surprise. Later closed as part of a broader test of this same
+limitation — see below.
+
+A systematic follow-up tested 15 realistically-phrased tickets against
+the category classifier: 10 miscategorized (67%), all traced back to
+the same labeling-rule blind spot, split into two different kinds —
+missing verb-tense forms (`"froze"`, `"freezing"` alongside existing
+`"freeze"`/`"frozen"`), fixed alongside the original `"crashing"` gap
+now that a pipeline re-run was already necessary; and structural gaps
+(exact-phrase matching breaking on inserted words, one keyword
+legitimately belonging to two categories, open-ended new phrasings)
+that a keyword-list edit can't responsibly fix without either
+disguising the underlying problem or risking unpredictable side
+effects. Verification surfaced two honest nuances worth keeping: fixing
+the rule for `"won't boot"` didn't fix the trained classifier's
+prediction for it, since the model likely saw too few real examples of
+that exact phrase to generalize even after the rule itself was
+corrected; and the original `"crashing"` test sentence still
+misclassifies, not because the fix failed, but because that sentence
+also contains `"log in"` (an Account Access keyword), creating a new
+1-1 tie that dictionary-order tie-breaking resolves the wrong way — the
+fix does work, confirmed on a version of the sentence without the
+competing phrase. Full writeup, including the complete before/after
+table, in
+[`docs/category-classifier-blind-spots.md`](category-classifier-blind-spots.md).
 
 ### Serving layer (`src/serving/app.py`, `src/serving/logging_config.py`)
 
@@ -868,3 +893,21 @@ history.
   exactly what the injection was able to influence. Verified the fix
   restores the full 4/4 rate on the same query that previously dropped
   to 2/4. Full finding and fix in `docs/rag-escalation-reliability.md`.
+- **2026-08-14** — Measured the category classifier's real-world miss
+  rate directly: 10 of 15 realistically-phrased tickets (67%)
+  miscategorized, versus the 98.7% test macro F1 the model reports.
+  Traced every miss back to the labeling rule, not the classifier, and
+  split them into word-form gaps (safe to fix — missing verb tenses)
+  versus structural gaps (exact-phrase matching limitations, one
+  keyword genuinely belonging to two categories, open-ended new
+  phrasings) that more keywords can't responsibly close. Fixed only the
+  word-form gaps, plus the previously-deferred `"crashing"` fix from
+  Phase 2 (bundled in since a pipeline re-run was already required),
+  and re-ran the full label → train → tune → register cascade. Declined
+  to chase the structural gaps — doing so would trade a stronger
+  illusion of accuracy for the same underlying problem: no ground-truth
+  labels exist to train against, and that limitation isn't fixable with
+  more keywords. Full finding, including two honest post-fix nuances
+  (a rule fix that didn't fully transfer to the trained model, and a
+  fix that works but collides with an unrelated keyword tie), in
+  `docs/category-classifier-blind-spots.md`.
