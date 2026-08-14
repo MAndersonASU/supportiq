@@ -1,0 +1,17 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+docs/
+data/raw/
+data/landing/
+data/validated/
+data/vector_store/
+models/
+mlflow.db
+mlruns/
+mlartifacts/
+.env
+*.dvc

@@ -1,0 +1,18 @@
+# Runtime dependencies for the FastAPI serving image only — a subset of
+# the full requirements.txt used for the data/training pipeline.
+# pandas is intentionally left unpinned to <3 here rather than matching
+# requirements.txt's pandas==3.0.5: mlflow 3.15.1 declares pandas<3, and
+# a fresh dependency resolution (a clean Docker build, unlike the dev
+# venv's incrementally-installed packages) enforces that constraint and
+# fails otherwise. Training-only tools (kaggle, dvc, pandera) and
+# test-only tools (pytest, httpx2) are excluded — the serving image
+# never uses them.
+fastapi==0.141.1
+uvicorn==0.52.3
+mlflow==3.15.1
+joblib==1.5.3
+scikit-learn==1.9.0
+chromadb==1.5.9
+sentence-transformers==5.7.0
+ollama==0.6.2
+pandas<3

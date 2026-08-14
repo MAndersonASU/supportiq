@@ -371,6 +371,68 @@ and only the first real request pays the model-load cost (measured at
 about 14 seconds in a live run) rather than every deployment paying it
 upfront before serving anything.
 
+### Docker packaging (`Dockerfile`, `docker-compose.yml`, `requirements-serving.txt`)
+
+The serving stack is two containers, not one: the FastAPI app, and
+Ollama for local generation. Model artifacts (`models/`, `mlflow.db`,
+`mlruns/`), the vector index (`data/vector_store/`), and the Ollama
+model itself are mounted as volumes rather than baked into images —
+these are large (the Ollama model alone is 2 GB) and reproducible by
+re-running the pipeline scripts, the same reasoning already applied to
+every other large artifact in this project.
+
+Three real problems surfaced by actually building and running this,
+not by writing the config and assuming it would work:
+
+- **A genuine dependency conflict, hidden by local install order.**
+  `mlflow` declares `pandas<3`; the project's `requirements.txt` pins
+  `pandas==3.0.5` for the training pipeline. The local dev environment
+  had both installed successfully because packages were added
+  incrementally across many separate `pip install` calls over several
+  sessions, and pip only checks the package being installed against
+  what's already present — it doesn't re-validate the whole graph. A
+  clean Docker build resolves all dependencies at once and caught the
+  conflict immediately. Fixed with a separate `requirements-serving.txt`
+  for the image, with `pandas` left unpinned to satisfy `mlflow`'s
+  constraint, and training-only tools (`kaggle`, `dvc`, `pandera`) and
+  test-only tools (`pytest`, `httpx2`) excluded since the serving image
+  never uses them.
+- **A false-positive verification.** The first "successful" live test
+  against the running container was actually served by a stray local
+  `uvicorn` process from an earlier manual test session, still bound to
+  `127.0.0.1:8000` — an earlier `kill` had targeted a shell job number
+  rather than the actual OS process. Both the stray process and the
+  container's port mapping were listening on port 8000 simultaneously,
+  and the more specific `127.0.0.1` binding won for local requests. The
+  container's own logs never showed the request, which is what exposed
+  it — a response that looks correct but that the service you're
+  testing never logged receiving is not verification, it's coincidence.
+  Killed the stray process and re-ran the test properly.
+- **MLflow's local artifact store doesn't survive containerization.**
+  With the real container reachable, loading the production classifier
+  failed: MLflow's SQLite tracking store keeps only metadata, and its
+  local file-based artifact store had recorded an absolute Windows host
+  path for the actual model bytes at logging time. Mounting `mlruns/`
+  wasn't sufficient, because the database still pointed at a path that
+  doesn't exist inside a Linux container. Fixing this properly would
+  mean running a real MLflow tracking server with a remote artifact
+  store (S3 or similar), which is out of scope for this project's
+  local-first, zero-budget constraint. The pragmatic fix: the registry's
+  `production` alias is still queried at inference time (a pure
+  metadata lookup, confirming a version is registered, no artifact
+  download involved), but the actual model object loads from the
+  mounted `.joblib` file, which is portable. This is a real, documented
+  limitation of local MLflow deployments, not something specific to
+  this project's setup.
+
+A fourth, smaller finding: cold-start latency inside a fresh container
+(44 seconds) was noticeably higher than the same request run locally
+(~14 seconds), because the embedding model had no cached copy to reuse.
+Added a named volume for the HuggingFace cache, which reduced repeat
+cold starts to about 25 seconds — better, but a meaningful baseline
+latency remains, and that remainder is intrinsic to generating with a
+3B-parameter model on CPU, not a loading cost to optimize away.
+
 ## Design decisions log
 
 Decisions are recorded here as they're made, with the reasoning, so the
@@ -559,3 +621,26 @@ history.
   published package (not a speculative or unmaintained one) before
   adopting it, rather than either ignoring the warning or switching on
   faith.
+- **2026-08-13** — The serving image installs a separate
+  `requirements-serving.txt` rather than the project's main
+  `requirements.txt`. The two have a real, not hypothetical, dependency
+  conflict (`mlflow` requires `pandas<3`; the training pipeline pins
+  `pandas==3.0.5`) that a clean dependency resolution enforces and the
+  incrementally-built local dev environment had been silently avoiding.
+- **2026-08-13** — Docker Compose uses named volumes for the Ollama
+  model and the HuggingFace embedding-model cache, not bind mounts to
+  host paths. A bind mount to this machine's actual Ollama directory
+  would have avoided a 2 GB re-download during setup, but would have
+  hardcoded a Windows-user-specific absolute path into a public
+  repository — not reproducible for anyone else running this project,
+  and not something to trade portability for personal convenience.
+- **2026-08-13** — At inference time, the triage pipeline still queries
+  the MLflow registry's `production` alias, but loads the actual model
+  object from the mounted `.joblib` file rather than through MLflow's
+  artifact-store resolution. Local MLflow's file-based artifact store
+  records absolute host paths at logging time, which don't resolve
+  inside a container; a full fix would require a real tracking server
+  with remote artifact storage, out of scope here. The registry lookup
+  is kept because it's still real verification — a missing or
+  unpromoted model fails loudly — even though the artifact bytes come
+  from a different, portable source.

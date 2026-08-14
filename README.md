@@ -103,6 +103,19 @@ ollama pull llama3.2:3b
 
 `GET /health` for a liveness check, `POST /triage` with `{"text": "..."}` for a full classify-and-draft response, interactive docs at `/docs`. Models are not loaded at startup — the first request pays the one-time load cost (embedding model, vector index, classifiers); subsequent requests reuse the cached models.
 
+## Running with Docker
+
+Requires the training/registry pipeline to have already been run locally at least once (`models/`, `mlflow.db`, `mlruns/`, and `data/vector_store/` must exist — these are mounted into the container, not rebuilt inside it).
+
+```
+docker compose up -d
+docker compose exec ollama ollama pull llama3.2:3b   # one-time, persists in a named volume
+```
+
+`GET http://localhost:8000/health` and `POST http://localhost:8000/triage` work the same as running locally. The app container waits for Ollama's healthcheck before starting. First request after a fresh container start is slow (cold model load — the embedding model downloads into a cached volume on first use, and the local LLM itself takes real time to generate on CPU); subsequent requests are faster.
+
+The serving image installs `requirements-serving.txt`, not the full `requirements.txt` — `mlflow` requires `pandas<3`, which conflicts with the training pipeline's `pandas==3.0.5`. The model registry's `production` alias is still checked at container startup-time inference (confirming a production version is registered), but the actual model weights load from the mounted `.joblib` files: MLflow's local file-based artifact store records absolute host filesystem paths, which don't resolve inside a container.
+
 The dataset ships with no ground-truth category/priority labels. `label_tickets` applies weak supervision (keyword labeling functions) rather than calling a paid LLM API; the category keywords were grounded by an exploratory clustering pass — see `src/models/explore_categories.py` and `docs/architecture.md`.
 
 `train_classifier` trains a baseline TF-IDF + logistic regression classifier for category and for priority, tracked in MLflow (`mlflow ui --backend-store-uri sqlite:///mlflow.db` to view runs locally). Read `docs/architecture.md` before trusting the category metric at face value — it's explained there.

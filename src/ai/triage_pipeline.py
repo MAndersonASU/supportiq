@@ -1,11 +1,20 @@
 """
 End-to-end triage pipeline: classifies an incoming ticket (category,
-priority) using the production models from the MLflow registry, then
-drafts a grounded resolution with the RAG assistant. Ties Phase 2's
-classifiers and Phase 3's resolution assistant into the single product
-surface the project set out to build. Loading models via their registry
-alias (rather than the local joblib files directly) exercises the
-registry in an actual inference path, not just at training time.
+priority) using the production models, then drafts a grounded resolution
+with the RAG assistant. Ties Phase 2's classifiers and Phase 3's
+resolution assistant into the single product surface the project set
+out to build.
+
+The MLflow registry's `production` alias is still consulted at
+inference time — that's a cheap metadata lookup confirming a production
+version exists — but the actual model weights are loaded from the
+mounted `.joblib` file, not via MLflow's artifact-store resolution.
+MLflow's local file-based artifact store records absolute host
+filesystem paths at logging time, which don't exist inside a container;
+resolving them there fails, and fixing that properly would mean running
+a real MLflow tracking server with its own artifact storage (S3 or
+similar) instead of a local SQLite file, which is outside this
+project's local-first, zero-budget scope.
 """
 
 from __future__ import annotations
@@ -13,16 +22,13 @@ from __future__ import annotations
 import json
 import sys
 
+import joblib
 import mlflow
-import mlflow.sklearn
+from mlflow import MlflowClient
 
 from src.ai.rag_assistant import generate_response
-from src.models.train_classifier import MLFLOW_DB_PATH
-
-MODEL_ALIAS_URIS = {
-    "category": "models:/ticket-category-classifier@production",
-    "priority": "models:/ticket-priority-classifier@production",
-}
+from src.models.register_model import REGISTERED_MODEL_NAMES
+from src.models.train_classifier import MLFLOW_DB_PATH, MODEL_DIR
 
 _classifiers: dict[str, object] = {}
 
@@ -30,7 +36,13 @@ _classifiers: dict[str, object] = {}
 def get_classifier(target_col: str):
     if target_col not in _classifiers:
         mlflow.set_tracking_uri(f"sqlite:///{MLFLOW_DB_PATH}")
-        _classifiers[target_col] = mlflow.sklearn.load_model(MODEL_ALIAS_URIS[target_col])
+        model_name = REGISTERED_MODEL_NAMES[target_col]
+        # Metadata-only lookup: confirms a production version is registered
+        # and raises if not, without downloading any artifact.
+        MlflowClient().get_model_version_by_alias(model_name, "production")
+
+        model_path = MODEL_DIR / f"{target_col}_classifier.joblib"
+        _classifiers[target_col] = joblib.load(model_path)
     return _classifiers[target_col]
 
 
