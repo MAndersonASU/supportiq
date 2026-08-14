@@ -39,6 +39,7 @@ def test_cosine_similarity_scores_each_row_of_the_matrix():
 def make_result(**overrides: object) -> dict:
     result = {
         "num_hallucinated_citations": 0,
+        "link_redacted": False,
         "needs_human_escalation": False,
         "mean_groundedness_similarity": 0.5,
         "reply_nonempty": True,
@@ -69,6 +70,19 @@ def test_summarize_reports_escalation_rate():
     summary = summarize_results(results)
 
     assert summary["escalation_rate"] == 0.25
+
+
+def test_summarize_reports_link_redaction_rate():
+    results = [
+        make_result(link_redacted=True),
+        make_result(link_redacted=False),
+        make_result(link_redacted=False),
+        make_result(link_redacted=False),
+    ]
+
+    summary = summarize_results(results)
+
+    assert summary["link_redaction_rate"] == 0.25
 
 
 def test_summarize_counts_empty_or_short_replies():

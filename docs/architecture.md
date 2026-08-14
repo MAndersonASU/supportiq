@@ -358,6 +358,14 @@ formatting literalism typical of a 3B-parameter model, not a grounding
 or factual problem. Left as-is rather than over-engineering prompt
 formatting for a portfolio-scale assistant.
 
+The prompt instruction against copying real links doesn't stop the
+model from fabricating a new, fictitious one — a distinct failure mode
+caught later by live-testing the deployed API, and fixed by stripping
+any URL-shaped text (real or fabricated) from every generated reply
+before it's returned, rather than relying on prompt compliance alone.
+Full writeup, including a reproduction rate and post-fix verification,
+in [`docs/rag-link-fabrication.md`](rag-link-fabrication.md).
+
 ### Evaluation harness (`src/ai/evaluate_rag.py`)
 
 Runs a fixed set of test queries through the full pipeline and scores
@@ -768,3 +776,12 @@ history.
   macro F1 for both targets were essentially unchanged, which is the
   expected signature of a correctly-scoped, narrow fix rather than an
   accidental broad one.
+- **2026-08-13** — Added `redact_urls`, stripping any URL-shaped text
+  from RAG-generated replies before they're returned, after live-testing
+  surfaced the model fabricating a fictitious tracking link (distinct
+  from the earlier real-link-copying bug, since no real customer data
+  was involved). Chose to strip unconditionally — real or fabricated —
+  rather than try to distinguish them, since neither can be verified
+  safe without a human reviewing it, and this dataset's brand-support
+  replies have no legitimate reason to include a link a human hasn't
+  reviewed. Full finding and fix in `docs/rag-link-fabrication.md`.

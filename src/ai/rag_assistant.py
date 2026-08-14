@@ -6,12 +6,15 @@ validated structured object rather than free text so a serving layer
 can consume it safely. Citations the model claims are cross-checked
 against what was actually retrieved — an LLM citing a ticket it wasn't
 shown is a hallucination, not a real citation, and is reported as such
-rather than trusted. No external API calls — embeddings and generation
-both run locally.
+rather than trusted. Any URL in the generated reply is stripped before
+it's returned, whether copied from a retrieved example or fabricated —
+neither can be verified safe, so neither is sent to a customer. No
+external API calls — embeddings and generation both run locally.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -25,6 +28,7 @@ COLLECTION_NAME = "ticket_resolutions"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 GENERATION_MODEL_NAME = "llama3.2:3b"
 DEFAULT_TOP_K = 3
+URL_PATTERN = re.compile(r"https?://\S+")
 
 
 class ResolutionDraft(BaseModel):
@@ -105,6 +109,11 @@ def build_prompt(query_text: str, retrieved: list[dict]) -> str:
     )
 
 
+def redact_urls(reply: str) -> tuple[str, bool]:
+    redacted = URL_PATTERN.sub("[link removed]", reply)
+    return redacted, redacted != reply
+
+
 def verify_citations(cited_ticket_ids: list[str], retrieved: list[dict]) -> tuple[list[str], list[str]]:
     retrieved_ids = {r["ticket_id"] for r in retrieved}
     verified = [t for t in cited_ticket_ids if t in retrieved_ids]
@@ -123,12 +132,14 @@ def generate_response(query_text: str, top_k: int = DEFAULT_TOP_K) -> dict:
     )
     draft = ResolutionDraft.model_validate_json(response["message"]["content"])
     verified_citations, hallucinated_citations = verify_citations(draft.cited_ticket_ids, retrieved)
+    redacted_reply, link_redacted = redact_urls(draft.reply)
 
     return {
         "query": query_text,
-        "reply": draft.reply,
+        "reply": redacted_reply,
         "cited_ticket_ids": verified_citations,
         "hallucinated_citations": hallucinated_citations,
+        "link_redacted": link_redacted,
         "needs_human_escalation": draft.needs_human_escalation,
         "retrieved_examples": retrieved,
         "generation_model": GENERATION_MODEL_NAME,
@@ -146,6 +157,8 @@ def main() -> None:
     print(f"Cited tickets: {result['cited_ticket_ids']}")
     if result["hallucinated_citations"]:
         print(f"Hallucinated citations (dropped): {result['hallucinated_citations']}")
+    if result["link_redacted"]:
+        print("A URL in the generated reply was redacted before returning it.")
     print("\nRetrieved examples:")
     for example in result["retrieved_examples"]:
         print(f"  ticket {example['ticket_id']} ({example['category']}, distance {example['distance']:.3f})")

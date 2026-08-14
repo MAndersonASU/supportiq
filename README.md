@@ -10,7 +10,9 @@ infrastructure — no paid API in the loop.
 Built incrementally, one pipeline stage at a time, with each stage documented
 as it's completed. See [`docs/engineering-log/`](docs/engineering-log/) for
 the development log, [`docs/architecture.md`](docs/architecture.md) for the
-system design, and [`docs/demo.md`](docs/demo.md) for real captured output.
+system design, [`docs/demo.md`](docs/demo.md) for real captured output, and
+[`docs/rag-link-fabrication.md`](docs/rag-link-fabrication.md) for a real
+safety finding and fix caught by live-testing the deployed API.
 
 ## Problem
 

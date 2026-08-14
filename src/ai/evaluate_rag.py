@@ -53,6 +53,7 @@ def score_response(result: dict) -> dict:
         "reply_nonempty": len(reply.strip()) >= MIN_REPLY_LENGTH,
         "num_citations": len(result["cited_ticket_ids"]),
         "num_hallucinated_citations": len(result["hallucinated_citations"]),
+        "link_redacted": result["link_redacted"],
         "max_groundedness_similarity": float(np.max(similarities)),
         "mean_groundedness_similarity": float(np.mean(similarities)),
         "needs_human_escalation": result["needs_human_escalation"],
@@ -63,6 +64,7 @@ def summarize_results(results: list[dict]) -> dict:
     return {
         "num_queries": len(results),
         "hallucination_rate": sum(r["num_hallucinated_citations"] > 0 for r in results) / len(results),
+        "link_redaction_rate": sum(r["link_redacted"] for r in results) / len(results),
         "escalation_rate": sum(r["needs_human_escalation"] for r in results) / len(results),
         "mean_groundedness_similarity": float(
             np.mean([r["mean_groundedness_similarity"] for r in results])

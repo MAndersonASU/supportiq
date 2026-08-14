@@ -17,6 +17,7 @@ def fake_triage(text: str) -> dict:
         "predicted_priority": "Medium",
         "draft_reply": "We're looking into this for you.",
         "cited_ticket_ids": ["123"],
+        "link_redacted": False,
         "needs_human_escalation": False,
     }
 
@@ -40,6 +41,7 @@ def test_triage_endpoint_returns_expected_shape():
     assert body["predicted_category"] == "Technical Support"
     assert body["predicted_priority"] == "Medium"
     assert body["cited_ticket_ids"] == ["123"]
+    assert body["link_redacted"] is False
     assert body["needs_human_escalation"] is False
 
 

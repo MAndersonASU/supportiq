@@ -58,6 +58,7 @@ def triage(ticket_text: str) -> dict:
         "predicted_priority": predicted_priority,
         "draft_reply": resolution["reply"],
         "cited_ticket_ids": resolution["cited_ticket_ids"],
+        "link_redacted": resolution["link_redacted"],
         "needs_human_escalation": resolution["needs_human_escalation"],
     }
 

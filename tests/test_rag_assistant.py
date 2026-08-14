@@ -7,7 +7,7 @@ if it was actually retrieved — anything else is a hallucination, not a
 real citation).
 """
 
-from src.ai.rag_assistant import build_prompt, verify_citations
+from src.ai.rag_assistant import build_prompt, redact_urls, verify_citations
 
 
 def make_example(**overrides: object) -> dict:
@@ -90,3 +90,25 @@ def test_verify_citations_handles_no_citations():
 
     assert verified == []
     assert hallucinated == []
+
+
+def test_redact_urls_removes_https_link():
+    reply, redacted = redact_urls("DM us at https://t.co/abc123 for help")
+
+    assert "https://t.co/abc123" not in reply
+    assert "[link removed]" in reply
+    assert redacted is True
+
+
+def test_redact_urls_leaves_plain_text_unchanged():
+    reply, redacted = redact_urls("Sorry to hear that, please DM us the details")
+
+    assert reply == "Sorry to hear that, please DM us the details"
+    assert redacted is False
+
+
+def test_redact_urls_handles_multiple_links():
+    reply, redacted = redact_urls("See https://example.com/a and https://example.com/b")
+
+    assert "https://example.com" not in reply
+    assert redacted is True
