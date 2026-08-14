@@ -2,28 +2,84 @@
 
 [![CI](https://github.com/MAndersonASU/supportiq/actions/workflows/ci.yml/badge.svg)](https://github.com/MAndersonASU/supportiq/actions/workflows/ci.yml)
 
-An end-to-end AI engineering project: a customer support ticket platform that
-combines a production-style data pipeline, a classical ML triage model, and a
-retrieval-augmented resolution assistant running entirely on local, free
-infrastructure — no paid API in the loop.
+An AI-powered support ticket platform that automatically triages incoming
+tickets and drafts grounded reply suggestions for support agents — built
+end-to-end, from raw data to a running API, with the same rigor a
+production AI engineering team would apply.
 
-Built incrementally, one pipeline stage at a time, with each stage documented
-as it's completed. See [`docs/engineering-log/`](docs/engineering-log/) for
-the development log, [`docs/architecture.md`](docs/architecture.md) for the
-system design, [`docs/demo.md`](docs/demo.md) for real captured output, and
-[`docs/rag-link-fabrication.md`](docs/rag-link-fabrication.md) for a real
-safety finding and fix caught by live-testing the deployed API.
+## What this is
 
-## Problem
+Support teams field a constant stream of tickets that need three things
+before an agent can act on them: what category is this, how urgent is it,
+and what's the fastest path to a good answer. That triage work is usually
+manual — an agent reads the ticket, decides where it belongs, and often
+searches past cases for a similar resolution before replying.
 
-Support teams triage incoming tickets (categorize, prioritize, route) and
-then resolve them, often by searching past tickets and internal docs for a
-similar case. SupportIQ automates both halves:
+SupportIQ automates the first two steps and assists the third:
 
-1. **Classify** an incoming ticket (category, priority) with a trained ML
-   model.
-2. **Assist resolution** by retrieving similar past tickets / knowledge-base
-   entries and generating a grounded, cited draft response with an LLM.
+1. **Classifies** every incoming ticket by category (Billing, Technical
+   Support, Account Access, Order/Delivery, and more) and priority
+   (Low/Medium/High), using a trained machine learning model — no manual
+   sorting required.
+2. **Drafts a grounded reply suggestion** by retrieving the most similar
+   past tickets and their real resolutions, then having a locally-run AI
+   model draft a response based on those — with built-in checks that
+   catch and remove anything the model states without real grounding
+   before it ever reaches an agent.
+
+An agent still reviews and sends the final reply. SupportIQ's job is to
+get them to a strong starting point faster, not to auto-respond
+unsupervised — and everywhere the AI model could produce something
+ungrounded or unsafe, that output is checked in code, not just assumed
+correct because the model was told to behave.
+
+## Why this matters for a business
+
+- **Faster first response.** Every ticket is categorized and prioritized
+  instantly instead of sitting in a general queue for manual triage.
+- **Consistency at scale.** The same ticket, phrased the same way, gets
+  routed the same way every time — not dependent on which agent happens
+  to pick it up.
+- **Less time searching, more time resolving.** Instead of an agent
+  manually digging through past tickets for "have we seen this before,"
+  the system retrieves the closest real precedents automatically and
+  drafts a starting reply grounded in them.
+- **Safety-checked by design, not by trust.** Every AI-drafted claim is
+  verified before it's shown to anyone: citations the model claims are
+  checked against what was actually retrieved, and any link the model
+  generates is stripped rather than assumed safe. Both of these
+  protections exist because I found them broken during testing and fixed
+  them — see [`docs/rag-link-fabrication.md`](docs/rag-link-fabrication.md)
+  for one example, start to finish.
+
+## What I built
+
+The full pipeline, in the order it runs:
+
+1. **Data engineering** — ~2.8M raw support tweets ingested, schema-
+   validated, cleaned, and reconstructed into 789,547 individual support
+   tickets by rebuilding each customer's reply thread.
+2. **Machine learning triage model** — a trained classifier predicts
+   category and priority for any new ticket, tracked and versioned
+   through an experiment-tracking and model registry system (MLflow) the
+   way a production ML team manages model versions and promotion.
+3. **AI resolution assistant** — retrieves the most similar past tickets
+   from a vector database and uses a locally-run AI model to draft a
+   grounded reply, citing which past tickets informed it. Runs entirely
+   on free, local infrastructure — no paid API required.
+4. **API and deployment** — the system runs behind a REST API (FastAPI),
+   containerized with Docker, with automated tests and a build check
+   running on every code change (CI/CD via GitHub Actions).
+5. **Safety and monitoring** — every AI-drafted claim is checked, not
+   trusted: cited tickets are verified against what was actually
+   retrieved, hallucination rates are tracked over a fixed evaluation
+   set, and generated links are stripped before a reply is ever returned.
+
+Every stage, and every real bug found and fixed along the way, is
+documented in [`docs/`](docs/) — see
+[`docs/engineering-log/`](docs/engineering-log/) for the full build
+history and [`docs/architecture.md`](docs/architecture.md) for the system
+design and every engineering decision behind it.
 
 ## Results
 
@@ -36,7 +92,7 @@ similar case. SupportIQ automates both halves:
   independent ground truth to check generalization against) — the
   honest read on this number, not just the number itself, is in
   `docs/architecture.md`.
-- **Priority classifier**: 0.428 test macro F1, with a diagnosed,
+- **Priority classifier**: 0.429 test macro F1, with a diagnosed,
   unfixed cause: part of the priority label depends on punctuation/
   capitalization that the default TF-IDF tokenizer strips before the
   model ever sees it. Documented as a real limitation rather than
@@ -45,10 +101,13 @@ similar case. SupportIQ automates both halves:
   past resolutions, with citation claims cross-checked against what was
   actually retrieved — 16.7% hallucination rate on a fixed 6-query
   evaluation set, caught and reported rather than assumed to be zero.
-- **Two real bugs and one false-positive test result** caught only by
-  actually running the built system, not by reading the code — details
-  in [`docs/architecture.md`](docs/architecture.md#design-decisions-log)
-  and [`docs/demo.md`](docs/demo.md).
+- **Multiple real bugs, one false-positive test result, and a documented
+  AI-safety finding** — all caught by actually running the built system,
+  not by reading the code. Full catalogue in
+  [`docs/architecture.md`](docs/architecture.md#design-decisions-log);
+  the link-fabrication finding has its own writeup at
+  [`docs/rag-link-fabrication.md`](docs/rag-link-fabrication.md),
+  including a measured reproduction rate and post-fix verification.
 
 ## Architecture
 
@@ -125,7 +184,7 @@ ollama pull llama3.2:3b
 .venv\Scripts\python -m src.ai.triage_pipeline "my order never arrived"
 ```
 
-`rag_assistant` returns a validated structured object (reply, cited ticket IDs cross-checked against what was actually retrieved, an escalation flag) rather than free text. `triage_pipeline` combines the production classifiers with the resolution assistant into a single classify-then-draft call. It checks the MLflow registry's `production` alias for each model (confirming a version is actually promoted) but loads the model weights from the mounted `.joblib` file — see [Running with Docker](#running-with-docker) for why.
+`rag_assistant` returns a validated structured object (reply, cited ticket IDs cross-checked against what was actually retrieved, an escalation flag) rather than free text, with any generated link stripped before it's returned — see [`docs/rag-link-fabrication.md`](docs/rag-link-fabrication.md). `triage_pipeline` combines the production classifiers with the resolution assistant into a single classify-then-draft call. It checks the MLflow registry's `production` alias for each model (confirming a version is actually promoted) but loads the model weights from the mounted `.joblib` file — see [Running with Docker](#running-with-docker) for why.
 
 ## Running the API
 
@@ -177,9 +236,11 @@ test suite, plus a Docker build check for the serving image — see
 
 Feature-complete: data pipeline, ML triage model, RAG resolution
 assistant, FastAPI serving, Docker packaging, and CI are all built and
-verified end to end. See the [engineering log](docs/engineering-log/)
-for the full build history and [`docs/demo.md`](docs/demo.md) for real
-output from a live run.
+verified end to end. Still under active review — testing the deployed
+system continues to surface real findings, each investigated,
+documented, and fixed in place; see the
+[engineering log](docs/engineering-log/) for the full history and
+[`docs/demo.md`](docs/demo.md) for real output from a live run.
 
 ## License
 
