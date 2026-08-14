@@ -459,6 +459,20 @@ working code to fit an arbitrary default. The remaining 3 findings were
 real style issues (`== True`/`== False` comparisons in test assertions)
 and were fixed directly.
 
+The first CI run caught a real bug the local environment had been
+hiding: `requirements.txt` pinned `pandas==3.0.5`, but `mlflow` requires
+`pandas<3` — versions that cannot both be satisfied. The local dev venv
+had `pandas 2.3.3` actually installed, not the `3.0.5` the file
+claimed, because that pin had drifted out of sync with reality across
+incremental `pip install` calls over many sessions, the same class of
+problem already found once during Docker packaging, this time in the
+main dependency file rather than the serving one. A clean install — the
+same thing CI does — surfaces this immediately; an incrementally-built
+environment does not. Fixed by correcting the pin to `pandas==2.3.3`,
+then verifying in a fresh virtual environment (not just re-running
+tests in the already-working one) that the install resolves cleanly and
+the full suite still passes.
+
 ## Design decisions log
 
 Decisions are recorded here as they're made, with the reasoning, so the
@@ -676,6 +690,12 @@ history.
   predates the linter being added to the project; the actual longest
   line already in the codebase is 110 characters, so the limit reflects
   existing practice rather than loosening a real standard.
+- **2026-08-13** — `requirements.txt`'s `pandas` pin was corrected from
+  `3.0.5` to `2.3.3` after the first CI run failed a clean dependency
+  resolution (`mlflow` requires `pandas<3`). The local dev environment
+  had been running `2.3.3` all along; the file's pin was simply stale
+  and nothing had exercised a clean install of it before CI did. Verified
+  in a fresh virtual environment, not just by trusting the fix.
 - **2026-08-13** — CI's Docker job builds the image but doesn't run it.
   A real integration test would need Ollama available in the CI
   environment and a multi-minute model pull on every run, for a
