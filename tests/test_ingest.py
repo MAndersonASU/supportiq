@@ -30,7 +30,7 @@ def test_ingest_writes_valid_rows_and_rejects_malformed(tmp_path: Path) -> None:
     assert set(written["tweet_id"]) == {1, 2}
 
     row_one = written.loc[written["tweet_id"] == 1].iloc[0]
-    assert row_one["inbound"] == False
+    assert not row_one["inbound"]
     assert pd.isna(row_one["in_response_to_tweet_id"])
 
     row_two = written.loc[written["tweet_id"] == 2].iloc[0]

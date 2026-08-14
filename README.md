@@ -1,5 +1,7 @@
 # SupportIQ
 
+[![CI](https://github.com/MAndersonASU/supportiq/actions/workflows/ci.yml/badge.svg)](https://github.com/MAndersonASU/supportiq/actions/workflows/ci.yml)
+
 An end-to-end AI engineering project: a customer support ticket platform that
 combines a production-style data pipeline, a classical ML triage model, and a
 Claude-powered retrieval-augmented resolution assistant.
@@ -125,6 +127,17 @@ Phase 3's RAG assistant will use the Claude API — set `ANTHROPIC_API_KEY` in a
 The final ticket-level feature set is version-controlled with DVC (see
 `data/processed/ticket_features.parquet.dvc`). Run `dvc pull` to fetch the
 exact version referenced by that pointer file from the configured remote.
+
+## Continuous integration
+
+Every push and pull request against `main` runs lint (`ruff check`) and the
+test suite, plus a Docker build check for the serving image — see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+```
+.venv\Scripts\python -m ruff check src/ tests/
+.venv\Scripts\python -m pytest
+```
 
 ## Status
 

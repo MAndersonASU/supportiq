@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Phase 1 (Data Engineering) — this document will grow as each phase
+Status: Phase 4 (MLOps/Serving) — this document will grow as each phase
 lands.
 
 ## System overview
@@ -433,6 +433,32 @@ cold starts to about 25 seconds — better, but a meaningful baseline
 latency remains, and that remainder is intrinsic to generating with a
 3B-parameter model on CPU, not a loading cost to optimize away.
 
+### Continuous integration (`.github/workflows/ci.yml`)
+
+Two jobs run on every push and pull request against `main`:
+
+- **`lint-and-test`** — installs `requirements.txt`, runs `ruff check`
+  against `src/` and `tests/`, then the full `pytest` suite. `kaggle`
+  and `dvc` are installed too, since they live in the same requirements
+  file, but neither is imported by anything the test suite exercises —
+  both are used only as CLIs during manual pipeline runs.
+- **`docker-build`** — builds the serving image (`docker build .`) to
+  catch Dockerfile and `requirements-serving.txt` regressions on every
+  push, without starting the container or requiring Ollama in the CI
+  environment. This is a build check, not an integration test: it would
+  not have caught the artifact-path or stray-process issues found while
+  packaging Docker, which needed a running stack and a real request.
+
+`ruff` was added as a dev dependency after checking, not assuming, that
+the existing codebase would pass a linter cleanly: an initial run
+surfaced 52 findings, all but 3 of them line-length warnings from a
+default 88-character limit the project was never written against. The
+longest real line in the codebase is 110 characters, so `ruff`'s line
+length is configured at 110 in `pyproject.toml` rather than reformatting
+working code to fit an arbitrary default. The remaining 3 findings were
+real style issues (`== True`/`== False` comparisons in test assertions)
+and were fixed directly.
+
 ## Design decisions log
 
 Decisions are recorded here as they're made, with the reasoning, so the
@@ -644,3 +670,16 @@ history.
   is kept because it's still real verification — a missing or
   unpromoted model fails loudly — even though the artifact bytes come
   from a different, portable source.
+- **2026-08-13** — Ruff's line-length limit is set to 110 rather than
+  its 88-character default. The alternative was reformatting a working,
+  already-tested codebase purely to satisfy a linter default that
+  predates the linter being added to the project; the actual longest
+  line already in the codebase is 110 characters, so the limit reflects
+  existing practice rather than loosening a real standard.
+- **2026-08-13** — CI's Docker job builds the image but doesn't run it.
+  A real integration test would need Ollama available in the CI
+  environment and a multi-minute model pull on every run, for a
+  workflow this project already verifies manually before each release
+  point. A build-only check still catches the class of failure most
+  likely to regress silently: a Dockerfile or `requirements-serving.txt`
+  change that breaks the image build itself.

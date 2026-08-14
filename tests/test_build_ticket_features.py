@@ -67,7 +67,7 @@ def test_resolved_ticket_has_first_response_time():
     assert len(tickets) == 1
     ticket = tickets.iloc[0]
     assert ticket["ticket_id"] == 1
-    assert ticket["resolved"] == True
+    assert ticket["resolved"]
     assert ticket["num_messages"] == 2
     assert ticket["first_response_seconds"] == 300.0
     assert ticket["brand_id"] == "brandco"
@@ -81,7 +81,7 @@ def test_unresolved_ticket_has_no_first_response_time():
     tickets, report = build_ticket_features(df)
 
     assert len(tickets) == 1
-    assert tickets.iloc[0]["resolved"] == False
+    assert not tickets.iloc[0]["resolved"]
     assert pd.isna(tickets.iloc[0]["first_response_seconds"])
 
 
