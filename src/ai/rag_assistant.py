@@ -13,8 +13,12 @@ customer. A reply claiming an action was already completed (a refund
 issued, a DM already sent) for the new customer is flagged and forced
 to human escalation rather than silently edited, since rewriting a
 natural-language claim safely is not as reliable as stripping a
-structured pattern like a link or a handle. No external API calls —
-embeddings and generation both run locally.
+structured pattern like a link or a handle. The model's own escalation
+judgment is not trusted alone either — ticket text carrying independent
+severity signals (legal threats, safety/injury language, fraud) forces
+escalation regardless of what the model decided, since that judgment
+was found to be manipulable the same way generated content is. No
+external API calls — embeddings and generation both run locally.
 """
 
 from __future__ import annotations
@@ -41,6 +45,12 @@ COMPLETED_ACTION_PATTERN = re.compile(
     r"|\brefund has been (?:issued|processed)\b"
     r"|\baccount has been (?:fixed|resolved)\b"
     r"|\bresponded to you via dm\b",
+    re.IGNORECASE,
+)
+SEVERITY_PATTERN = re.compile(
+    r"\b(?:sue|lawsuit|legal action|attorney|lawyer)\b"
+    r"|\b(?:injured|injury|hurt me|safety issue|unsafe|dangerous)\b"
+    r"|\b(?:fraud|scam|stolen|unauthorized)\b",
     re.IGNORECASE,
 )
 
@@ -140,6 +150,10 @@ def claims_completed_action(reply: str) -> bool:
     return COMPLETED_ACTION_PATTERN.search(reply) is not None
 
 
+def ticket_signals_severity(ticket_text: str) -> bool:
+    return SEVERITY_PATTERN.search(ticket_text) is not None
+
+
 def verify_citations(cited_ticket_ids: list[str], retrieved: list[dict]) -> tuple[list[str], list[str]]:
     retrieved_ids = {r["ticket_id"] for r in retrieved}
     verified = [t for t in cited_ticket_ids if t in retrieved_ids]
@@ -161,6 +175,7 @@ def generate_response(query_text: str, top_k: int = DEFAULT_TOP_K) -> dict:
     reply_no_urls, link_redacted = redact_urls(draft.reply)
     redacted_reply, mention_redacted = redact_mentions(reply_no_urls)
     completed_action_claimed = claims_completed_action(redacted_reply)
+    ticket_severity_signaled = ticket_signals_severity(query_text)
 
     return {
         "query": query_text,
@@ -170,11 +185,13 @@ def generate_response(query_text: str, top_k: int = DEFAULT_TOP_K) -> dict:
         "link_redacted": link_redacted,
         "mention_redacted": mention_redacted,
         "completed_action_claimed": completed_action_claimed,
+        "ticket_severity_signaled": ticket_severity_signaled,
         "needs_human_escalation": (
             draft.needs_human_escalation
             or completed_action_claimed
             or link_redacted
             or mention_redacted
+            or ticket_severity_signaled
         ),
         "retrieved_examples": retrieved,
         "generation_model": GENERATION_MODEL_NAME,
@@ -198,6 +215,8 @@ def main() -> None:
         print("An @handle in the generated reply was redacted before returning it.")
     if result["completed_action_claimed"]:
         print("Reply claims an action was already completed — forced to human escalation.")
+    if result["ticket_severity_signaled"]:
+        print("Ticket text signals severity independent of the model's judgment — forced to escalation.")
     print("\nRetrieved examples:")
     for example in result["retrieved_examples"]:
         print(f"  ticket {example['ticket_id']} ({example['category']}, distance {example['distance']:.3f})")

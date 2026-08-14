@@ -397,6 +397,19 @@ or `[handle removed]` placeholder text isn't fit to send as-is,
 regardless of what caused it. Full writeup in
 [`docs/rag-prompt-injection.md`](rag-prompt-injection.md).
 
+A related injection attempt targeted `needs_human_escalation` directly
+rather than reply content. A single test was inconclusive on its own,
+but a controlled follow-up settled it: the identical legal-threat
+ticket escalated 4/4 without the injected override and only 2/4 with
+it — a real, reproducible manipulation of the escalation decision, not
+noise. Fixed with `ticket_signals_severity`, a code-level check against
+the *original ticket text* (not the model's output) for legal/safety/
+fraud language, which forces escalation independent of whatever the
+model decided — since it doesn't depend on the model's compliance at
+all, it isn't manipulable the way the model's self-reported flag was.
+Full writeup in
+[`docs/rag-escalation-reliability.md`](rag-escalation-reliability.md).
+
 ### Evaluation harness (`src/ai/evaluate_rag.py`)
 
 Runs a fixed set of test queries through the full pipeline and scores
@@ -844,3 +857,14 @@ history.
   stop the injection itself from influencing generation, only what it
   can leak — documented as a real, acknowledged limit rather than a
   closed problem. Full finding and fix in `docs/rag-prompt-injection.md`.
+- **2026-08-14** — Confirmed, with a controlled comparison, that
+  `needs_human_escalation` can be manipulated by prompt injection the
+  same way reply content can: the identical legal-threat ticket
+  escalated 4/4 without an injected override instruction and only 2/4
+  with it. Fixed with `ticket_signals_severity`, which checks the
+  *original ticket text* for legal/safety/fraud language and forces
+  escalation independent of the model's own output — deliberately
+  designed not to depend on the model's compliance at all, since that's
+  exactly what the injection was able to influence. Verified the fix
+  restores the full 4/4 rate on the same query that previously dropped
+  to 2/4. Full finding and fix in `docs/rag-escalation-reliability.md`.

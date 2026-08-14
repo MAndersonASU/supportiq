@@ -42,6 +42,7 @@ def make_result(**overrides: object) -> dict:
         "link_redacted": False,
         "mention_redacted": False,
         "completed_action_claimed": False,
+        "ticket_severity_signaled": False,
         "needs_human_escalation": False,
         "mean_groundedness_similarity": 0.5,
         "reply_nonempty": True,
@@ -111,6 +112,19 @@ def test_summarize_reports_mention_redaction_rate():
     summary = summarize_results(results)
 
     assert summary["mention_redaction_rate"] == 0.25
+
+
+def test_summarize_reports_ticket_severity_signal_rate():
+    results = [
+        make_result(ticket_severity_signaled=True),
+        make_result(ticket_severity_signaled=False),
+        make_result(ticket_severity_signaled=False),
+        make_result(ticket_severity_signaled=False),
+    ]
+
+    summary = summarize_results(results)
+
+    assert summary["ticket_severity_signal_rate"] == 0.25
 
 
 def test_summarize_counts_empty_or_short_replies():

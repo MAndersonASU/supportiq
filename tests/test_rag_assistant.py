@@ -12,6 +12,7 @@ from src.ai.rag_assistant import (
     claims_completed_action,
     redact_mentions,
     redact_urls,
+    ticket_signals_severity,
     verify_citations,
 )
 
@@ -159,3 +160,15 @@ def test_redact_mentions_handles_multiple_handles():
     assert "@700420" not in reply
     assert "@777348" not in reply
     assert redacted is True
+
+
+def test_ticket_signals_severity_detects_legal_threat():
+    assert ticket_signals_severity("This is urgent, I will sue you, I am furious.") is True
+
+
+def test_ticket_signals_severity_detects_safety_language():
+    assert ticket_signals_severity("Your product injured me, this is a safety issue.") is True
+
+
+def test_ticket_signals_severity_ignores_neutral_text():
+    assert ticket_signals_severity("What are your business hours?") is False

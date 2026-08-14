@@ -39,6 +39,7 @@ class TriageResponse(BaseModel):
     link_redacted: bool
     mention_redacted: bool
     completed_action_claimed: bool
+    ticket_severity_signaled: bool
     needs_human_escalation: bool
 
 
@@ -84,6 +85,7 @@ def triage_ticket(payload: TicketRequest, triage_fn=Depends(get_triage_fn)) -> T
                 "link_redacted": result["link_redacted"],
                 "mention_redacted": result["mention_redacted"],
                 "completed_action_claimed": result["completed_action_claimed"],
+                "ticket_severity_signaled": result["ticket_severity_signaled"],
                 "needs_human_escalation": result["needs_human_escalation"],
             }
         },
