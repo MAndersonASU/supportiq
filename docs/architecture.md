@@ -32,6 +32,42 @@ raw tweets (data/raw, untouched source data)
    → RAG pipeline (retrieval + local LLM generation via Ollama) → serving layer
 ```
 
+The same flow, with the module boundaries and artifacts that actually
+produce each arrow:
+
+```mermaid
+flowchart TD
+    subgraph DE["Data engineering"]
+        A["raw/twcs.csv"] -->|"ingest.py<br/>Pydantic schema"| B["landing/tweets.parquet"]
+        B -->|"validate.py<br/>Pandera business rules"| C["validated/tweets.parquet"]
+        C -->|"clean.py<br/>normalization"| D["processed/tweets.parquet"]
+        D -->|"build_ticket_features.py<br/>thread reconstruction"| E["ticket_features.parquet<br/>(DVC-tracked)"]
+    end
+
+    subgraph ML["Classical ML"]
+        E -->|"label_tickets.py<br/>weak supervision"| F["labeled_tickets.parquet"]
+        F -->|"split_data.py"| G["train / val / test splits"]
+        G -->|"train_classifier.py<br/>tune_classifier.py"| H["MLflow tracking<br/>(mlflow.db)"]
+        H -->|"register_model.py"| I["Model registry<br/>staging / production aliases"]
+        I --> J["category_classifier.joblib"]
+        I --> K["priority_classifier.joblib"]
+    end
+
+    subgraph RAG["GenAI / RAG"]
+        E -->|"build_knowledge_base.py<br/>reconstruct resolutions"| L["Knowledge base"]
+        L -->|"build_vector_index.py<br/>sentence-transformers"| M["Chroma vector store"]
+        M -->|"rag_assistant.py<br/>retrieve + Ollama (llama3.2:3b)"| N["ResolutionDraft<br/>cited, citation-verified"]
+    end
+
+    subgraph Serving["Serving"]
+        J --> O["triage_pipeline.py"]
+        K --> O
+        N --> O
+        O --> P["FastAPI app.py<br/>/health /triage"]
+        P --> Q["Docker Compose<br/>app + ollama"]
+    end
+```
+
 ### Ingestion (`src/data/ingest.py`, `src/data/schema.py`)
 
 The raw dataset is ~2.8M tweets (516 MB as CSV) and is never loaded into
