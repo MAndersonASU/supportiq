@@ -376,6 +376,13 @@ natural-language claim safely isn't as reliable as stripping a URL.
 Full writeup in
 [`docs/rag-completed-action-claims.md`](rag-completed-action-claims.md).
 
+Tested the same prompt instruction's other half — copying another
+customer's order number, case number, or username — across 24
+generation calls spanning 6 query types. No reproducible instance
+found; the existing prompt instruction appears to hold for this
+identifier class, unlike links. Recorded as a tested negative result,
+not assumed safe without checking.
+
 ### Evaluation harness (`src/ai/evaluate_rag.py`)
 
 Runs a fixed set of test queries through the full pipeline and scores
