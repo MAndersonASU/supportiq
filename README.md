@@ -135,7 +135,7 @@ src/
 ├── features/   thread reconstruction, ticket-level feature engineering
 ├── ai/         knowledge base, vector index, RAG resolution assistant, triage pipeline
 ├── models/     training, evaluation, model registry
-└── serving/    FastAPI application, structured logging
+└── serving/    FastAPI application, structured logging, static web UI
 tests/          unit and pipeline tests
 docs/           architecture notes, the engineering log, and demo output
 .github/workflows/  CI: lint, test, Docker build check on every push
@@ -200,6 +200,8 @@ ollama pull llama3.2:3b
 
 `GET /health` for a liveness check, `POST /triage` with `{"text": "..."}` for a full classify-and-draft response, interactive docs at `/docs`. Models are not loaded at startup — the first request pays the one-time load cost (embedding model, vector index, classifiers); subsequent requests reuse the cached models.
 
+A web UI is served at `/` — paste or pick an example ticket, submit, and see the category, priority, an editable draft reply, cited past tickets, and which of the safety checks (link/handle redaction, completed-action-claim detection, severity-signal detection) fired on that response, without needing to call the API directly. It's a single static page (`src/serving/static/index.html`, no build step, no new dependency) served by the same FastAPI app.
+
 ## Running with Docker
 
 Requires the training/registry pipeline to have already been run locally at least once (`models/`, `mlflow.db`, `mlruns/`, and `data/vector_store/` must exist — these are mounted into the container, not rebuilt inside it).
@@ -209,7 +211,7 @@ docker compose up -d
 docker compose exec ollama ollama pull llama3.2:3b   # one-time, persists in a named volume
 ```
 
-`GET http://localhost:8000/health` and `POST http://localhost:8000/triage` work the same as running locally. The app container waits for Ollama's healthcheck before starting. First request after a fresh container start is slow (cold model load — the embedding model downloads into a cached volume on first use, and the local LLM itself takes real time to generate on CPU); subsequent requests are faster.
+`GET http://localhost:8000/health`, `POST http://localhost:8000/triage`, and the web UI at `http://localhost:8000/` all work the same as running locally. The app container waits for Ollama's healthcheck before starting. First request after a fresh container start is slow (cold model load — the embedding model downloads into a cached volume on first use, and the local LLM itself takes real time to generate on CPU); subsequent requests are faster.
 
 The serving image installs `requirements-serving.txt`, not the full `requirements.txt`, to keep training-only and test-only tools out of the image. The model registry's `production` alias is still checked at container startup-time inference (confirming a production version is registered), but the actual model weights load from the mounted `.joblib` files: MLflow's local file-based artifact store records absolute host filesystem paths, which don't resolve inside a container.
 

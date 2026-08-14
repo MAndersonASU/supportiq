@@ -478,13 +478,29 @@ competing phrase. Full writeup, including the complete before/after
 table, in
 [`docs/category-classifier-blind-spots.md`](category-classifier-blind-spots.md).
 
-### Serving layer (`src/serving/app.py`, `src/serving/logging_config.py`)
+### Serving layer (`src/serving/app.py`, `src/serving/logging_config.py`, `src/serving/static/`)
 
 A FastAPI service exposing the triage pipeline over HTTP: `GET /health`
 for liveness, `POST /triage` accepting raw ticket text and returning the
 same structured response the pipeline produces internally, plus
 interactive docs at `/docs` generated automatically from the Pydantic
 request/response models.
+
+`GET /` serves a static single-page web UI (`src/serving/static/index.html`)
+so an agent can use the service without calling the API directly — pick
+an example ticket or paste one, submit, and see the predicted category
+and priority, an editable draft reply, cited past tickets, and which of
+the safety checks from the RAG findings above (link/handle redaction,
+completed-action-claim detection, severity-signal detection) fired on
+that specific response. Plain HTML, CSS, and vanilla JavaScript, no
+framework and no build step — the machine this project was built on has
+no Node.js installed, and a single self-contained page needs neither a
+bundler nor a new runtime dependency. Verified live in a real browser,
+not just by reading the code: health check, both example and manual
+ticket submission, the escalation banner, citation display in both
+empty and populated states, all four safety-check pills in both their
+fired and clean states, history accumulation across multiple
+submissions, and the empty-input validation message.
 
 The triage function is injected via a FastAPI dependency
 (`get_triage_fn`) rather than called directly from the route handler, so
@@ -911,3 +927,13 @@ history.
   (a rule fix that didn't fully transfer to the trained model, and a
   fix that works but collides with an unrelated keyword tie), in
   `docs/category-classifier-blind-spots.md`.
+- **2026-08-14** — Built the triage web UI as a single static HTML file
+  with inline CSS and vanilla JavaScript, served directly by the
+  existing FastAPI app, instead of a separate frontend framework. No
+  Node.js is installed on this machine, ruling out any npm-based
+  toolchain outright; more fundamentally, a single-page internal tool
+  calling two existing endpoints doesn't need a framework's routing,
+  state management, or build step to justify the added complexity and
+  new dependency surface. The tradeoff is manual DOM updates instead of
+  a reactive framework, acceptable at this scale (one form, one result
+  panel, one history list).

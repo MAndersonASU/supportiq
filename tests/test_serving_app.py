@@ -29,6 +29,14 @@ app.dependency_overrides[get_triage_fn] = lambda: fake_triage
 client = TestClient(app)
 
 
+def test_ui_route_returns_html():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "SupportIQ" in response.text
+
+
 def test_health_check_returns_ok():
     response = client.get("/health")
 

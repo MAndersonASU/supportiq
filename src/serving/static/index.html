@@ -1,0 +1,431 @@
+<!-- SupportIQ triage interface: single-page UI calling the /health and /triage API. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SupportIQ</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #e1e4e8;
+    --text: #1f2328;
+    --muted: #6a737d;
+    --accent: #2f6feb;
+    --accent-hover: #2358c7;
+    --low: #1a7f37;
+    --medium: #9a6700;
+    --high: #cf222e;
+    --danger-bg: #fff1f0;
+    --danger-border: #ffccc7;
+    --ok-bg: #ecfdf3;
+    --ok-dot: #1a7f37;
+    --bad-dot: #cf222e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .shell {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  header h1 {
+    font-size: 22px;
+    margin: 0;
+  }
+  header p.subtitle {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .health {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .dot.ok { background: var(--ok-dot); }
+  .dot.bad { background: var(--bad-dot); }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 96px;
+    resize: vertical;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+  }
+  textarea:focus, button:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0 0;
+  }
+  .example-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .example-btn:hover { background: #eceef1; }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary:hover { background: var(--accent-hover); }
+  button.primary:disabled {
+    background: #9db8ee;
+    cursor: default;
+  }
+  .status-text {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+  .badge.priority-low { color: var(--low); border-color: var(--low); }
+  .badge.priority-medium { color: var(--medium); border-color: var(--medium); }
+  .badge.priority-high { color: var(--high); border-color: var(--high); }
+  .result-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .escalation-banner {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--high);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 14px;
+    font-weight: 600;
+  }
+  .reply-box textarea {
+    min-height: 110px;
+  }
+  .safety-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .check-pill {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .check-pill.fired {
+    color: var(--high);
+    border-color: var(--danger-border);
+    background: var(--danger-bg);
+  }
+  .citations {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+  .error-banner {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--high);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  h2.section-title {
+    font-size: 15px;
+    margin: 0 0 12px;
+  }
+  .history-item {
+    border-top: 1px solid var(--border);
+    padding: 12px 0;
+    font-size: 13px;
+  }
+  .history-item:first-child { border-top: none; }
+  .history-text {
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .history-meta {
+    color: var(--muted);
+  }
+  .empty-state {
+    color: var(--muted);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div>
+      <h1>SupportIQ</h1>
+      <p class="subtitle">Ticket triage &amp; resolution assistant</p>
+    </div>
+    <div class="health">
+      <span class="dot" id="healthDot"></span>
+      <span id="healthText">checking…</span>
+    </div>
+  </header>
+
+  <div id="errorBanner" class="error-banner" style="display:none;"></div>
+
+  <section class="panel">
+    <label for="ticketText">Ticket text</label>
+    <textarea id="ticketText" placeholder="Paste or type the incoming ticket text here…"></textarea>
+    <div class="examples" id="examples"></div>
+    <div class="actions">
+      <button class="primary" id="submitBtn">Triage Ticket</button>
+      <span class="status-text" id="statusText"></span>
+    </div>
+  </section>
+
+  <section class="panel" id="resultPanel" style="display:none;">
+    <h2 class="section-title">Result</h2>
+    <div id="escalationBanner" class="escalation-banner" style="display:none;"></div>
+    <div class="result-row">
+      <span class="badge" id="categoryBadge"></span>
+      <span class="badge" id="priorityBadge"></span>
+    </div>
+    <div class="reply-box">
+      <label for="draftReply">Draft reply (editable — review before sending)</label>
+      <textarea id="draftReply"></textarea>
+    </div>
+    <div class="citations" id="citations"></div>
+    <div class="safety-checks" id="safetyChecks"></div>
+  </section>
+
+  <section class="panel">
+    <h2 class="section-title">History</h2>
+    <div id="history"><p class="empty-state">No tickets triaged yet this session.</p></div>
+  </section>
+</div>
+
+<script>
+const EXAMPLES = [
+  "my order never arrived and it's been two weeks",
+  "I was charged twice for my subscription this month",
+  "the app keeps crashing after the latest update",
+  "what are your customer service hours?",
+  "This is the third time I've had this problem and nobody has helped me",
+];
+
+const els = {
+  healthDot: document.getElementById("healthDot"),
+  healthText: document.getElementById("healthText"),
+  ticketText: document.getElementById("ticketText"),
+  examples: document.getElementById("examples"),
+  submitBtn: document.getElementById("submitBtn"),
+  statusText: document.getElementById("statusText"),
+  errorBanner: document.getElementById("errorBanner"),
+  resultPanel: document.getElementById("resultPanel"),
+  escalationBanner: document.getElementById("escalationBanner"),
+  categoryBadge: document.getElementById("categoryBadge"),
+  priorityBadge: document.getElementById("priorityBadge"),
+  draftReply: document.getElementById("draftReply"),
+  citations: document.getElementById("citations"),
+  safetyChecks: document.getElementById("safetyChecks"),
+  history: document.getElementById("history"),
+};
+
+let historyItems = [];
+
+function renderExamples() {
+  EXAMPLES.forEach((text) => {
+    const btn = document.createElement("button");
+    btn.className = "example-btn";
+    btn.type = "button";
+    btn.textContent = text.length > 40 ? text.slice(0, 40) + "…" : text;
+    btn.title = text;
+    btn.addEventListener("click", () => { els.ticketText.value = text; });
+    els.examples.appendChild(btn);
+  });
+}
+
+async function checkHealth() {
+  try {
+    const res = await fetch("/health");
+    if (!res.ok) throw new Error("unhealthy");
+    els.healthDot.className = "dot ok";
+    els.healthText.textContent = "API online";
+  } catch (err) {
+    els.healthDot.className = "dot bad";
+    els.healthText.textContent = "API unreachable";
+  }
+}
+
+function priorityClass(priority) {
+  const p = (priority || "").toLowerCase();
+  if (p === "low") return "priority-low";
+  if (p === "medium") return "priority-medium";
+  if (p === "high") return "priority-high";
+  return "";
+}
+
+const SAFETY_LABELS = {
+  link_redacted: "Link redacted",
+  mention_redacted: "Handle redacted",
+  completed_action_claimed: "Completed-action claim caught",
+  ticket_severity_signaled: "Severity signal detected",
+};
+
+function renderSafetyChecks(result) {
+  els.safetyChecks.innerHTML = "";
+  Object.entries(SAFETY_LABELS).forEach(([key, label]) => {
+    const fired = !!result[key];
+    const pill = document.createElement("span");
+    pill.className = "check-pill" + (fired ? " fired" : "");
+    pill.textContent = (fired ? "⚑ " : "✓ ") + label;
+    els.safetyChecks.appendChild(pill);
+  });
+}
+
+function renderResult(result) {
+  els.resultPanel.style.display = "block";
+  els.categoryBadge.textContent = result.predicted_category;
+  els.priorityBadge.textContent = result.predicted_priority + " priority";
+  els.priorityBadge.className = "badge " + priorityClass(result.predicted_priority);
+  els.draftReply.value = result.draft_reply;
+
+  if (result.needs_human_escalation) {
+    els.escalationBanner.style.display = "block";
+    els.escalationBanner.textContent = "Flagged for human review before sending.";
+  } else {
+    els.escalationBanner.style.display = "none";
+  }
+
+  els.citations.textContent = result.cited_ticket_ids && result.cited_ticket_ids.length
+    ? "Cited past tickets: " + result.cited_ticket_ids.join(", ")
+    : "No past tickets cited in this draft.";
+
+  renderSafetyChecks(result);
+}
+
+function addHistoryItem(ticketText, result) {
+  historyItems.unshift({ ticketText, result, at: new Date() });
+  historyItems = historyItems.slice(0, 8);
+
+  els.history.innerHTML = "";
+  historyItems.forEach((item) => {
+    const div = document.createElement("div");
+    div.className = "history-item";
+    const text = document.createElement("div");
+    text.className = "history-text";
+    text.textContent = item.ticketText;
+    const meta = document.createElement("div");
+    meta.className = "history-meta";
+    meta.textContent = `${item.result.predicted_category} · ${item.result.predicted_priority}` +
+      (item.result.needs_human_escalation ? " · escalated" : "");
+    div.appendChild(text);
+    div.appendChild(meta);
+    els.history.appendChild(div);
+  });
+}
+
+async function submitTicket() {
+  const text = els.ticketText.value.trim();
+  els.errorBanner.style.display = "none";
+  if (!text) {
+    els.errorBanner.textContent = "Enter ticket text before submitting.";
+    els.errorBanner.style.display = "block";
+    return;
+  }
+
+  els.submitBtn.disabled = true;
+  els.statusText.textContent = "Drafting response… first request after startup can take 15–20s.";
+
+  try {
+    const res = await fetch("/triage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail ? JSON.stringify(body.detail) : `Request failed (${res.status})`);
+    }
+    const result = await res.json();
+    renderResult(result);
+    addHistoryItem(text, result);
+    els.statusText.textContent = "";
+  } catch (err) {
+    els.errorBanner.textContent = "Could not triage this ticket: " + err.message;
+    els.errorBanner.style.display = "block";
+    els.statusText.textContent = "";
+  } finally {
+    els.submitBtn.disabled = false;
+  }
+}
+
+els.submitBtn.addEventListener("click", submitTicket);
+renderExamples();
+checkHealth();
+</script>
+</body>
+</html>

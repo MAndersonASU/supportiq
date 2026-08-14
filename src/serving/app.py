@@ -7,18 +7,24 @@ on first use, so the service starts instantly and the first real request
 pays the one-time load cost instead of every deployment paying it
 upfront. The triage function is injected via a FastAPI dependency rather
 than called directly, so the API layer can be tested without a live
-model stack (Ollama, MLflow registry, vector index) behind it.
+model stack (Ollama, MLflow registry, vector index) behind it. A static
+single-page UI is served at the root path for agents to use the
+service without calling the API directly.
 """
 
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from src.ai.triage_pipeline import triage
 from src.serving.logging_config import get_logger
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI(title="SupportIQ", description="Ticket triage and resolution drafting")
 
@@ -64,6 +70,11 @@ async def log_requests(request: Request, call_next):
         },
     )
     return response
+
+
+@app.get("/", response_class=HTMLResponse)
+def ui() -> str:
+    return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
 
 @app.get("/health")
