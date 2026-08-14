@@ -7,7 +7,7 @@ if it was actually retrieved — anything else is a hallucination, not a
 real citation).
 """
 
-from src.ai.rag_assistant import build_prompt, redact_urls, verify_citations
+from src.ai.rag_assistant import build_prompt, claims_completed_action, redact_urls, verify_citations
 
 
 def make_example(**overrides: object) -> dict:
@@ -46,6 +46,12 @@ def test_prompt_instructs_against_copying_other_customers_details():
     prompt = build_prompt("query", [make_example()])
 
     assert "do not copy" in prompt.lower()
+
+
+def test_prompt_instructs_against_claiming_completed_actions():
+    prompt = build_prompt("query", [make_example()])
+
+    assert "already been completed" in prompt.lower()
 
 
 def test_prompt_includes_all_retrieved_examples():
@@ -112,3 +118,15 @@ def test_redact_urls_handles_multiple_links():
 
     assert "https://example.com" not in reply
     assert redacted is True
+
+
+def test_claims_completed_action_detects_already_responded():
+    assert claims_completed_action("We've responded to you via DM. Kindly check.") is True
+
+
+def test_claims_completed_action_detects_refund_issued():
+    assert claims_completed_action("Your refund has been issued, please allow 3-5 days.") is True
+
+
+def test_claims_completed_action_ignores_offers_to_help():
+    assert claims_completed_action("Can you please DM us so we can look into this?") is False

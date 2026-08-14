@@ -366,6 +366,16 @@ before it's returned, rather than relying on prompt compliance alone.
 Full writeup, including a reproduction rate and post-fix verification,
 in [`docs/rag-link-fabrication.md`](rag-link-fabrication.md).
 
+A related but distinct failure: the model copying a real past reply's
+*completed-action claim* ("we've already responded via DM") into a
+draft for a different customer, for whom nothing was actually done.
+Fixed on two layers — a stronger prompt instruction (measured 4/12 →
+1/12 reproduction rate) plus a code-level check that forces human
+escalation whenever the pattern still gets through, since rewriting a
+natural-language claim safely isn't as reliable as stripping a URL.
+Full writeup in
+[`docs/rag-completed-action-claims.md`](rag-completed-action-claims.md).
+
 ### Evaluation harness (`src/ai/evaluate_rag.py`)
 
 Runs a fixed set of test queries through the full pipeline and scores
@@ -785,3 +795,16 @@ history.
   safe without a human reviewing it, and this dataset's brand-support
   replies have no legitimate reason to include a link a human hasn't
   reviewed. Full finding and fix in `docs/rag-link-fabrication.md`.
+- **2026-08-14** — After the link-fabrication fix, tested the RAG
+  assistant for the same failure class more broadly and found the model
+  copying a real past reply's completed-action claim ("we've already
+  responded via DM") into a draft for a different customer. Unlike a
+  URL, a natural-language claim can't be safely stripped without risking
+  a broken sentence, so the fix is two-layered: a stronger prompt
+  instruction (measured at 4/12 → 1/12 reproduction rate, real but
+  incomplete, consistent with the link finding) plus a narrow, high-
+  precision phrase check that forces `needs_human_escalation` to `True`
+  whenever it still gets through. Chose escalation over silent editing
+  specifically because editing free text safely is a harder, less
+  reliable problem than editing a URL. Full finding and fix in
+  `docs/rag-completed-action-claims.md`.

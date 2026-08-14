@@ -8,8 +8,12 @@ against what was actually retrieved — an LLM citing a ticket it wasn't
 shown is a hallucination, not a real citation, and is reported as such
 rather than trusted. Any URL in the generated reply is stripped before
 it's returned, whether copied from a retrieved example or fabricated —
-neither can be verified safe, so neither is sent to a customer. No
-external API calls — embeddings and generation both run locally.
+neither can be verified safe, so neither is sent to a customer. A reply
+claiming an action was already completed (a refund issued, a DM already
+sent) for the new customer is flagged and forced to human escalation
+rather than silently edited, since rewriting a natural-language claim
+safely is not as reliable as stripping a URL. No external API calls —
+embeddings and generation both run locally.
 """
 
 from __future__ import annotations
@@ -29,6 +33,14 @@ EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 GENERATION_MODEL_NAME = "llama3.2:3b"
 DEFAULT_TOP_K = 3
 URL_PATTERN = re.compile(r"https?://\S+")
+COMPLETED_ACTION_PATTERN = re.compile(
+    r"\bwe(?:'ve| have) (?:already )?(?:responded|refunded|resolved|fixed|sent)\b"
+    r"|\balready (?:responded|refunded|resolved|fixed|sent|contacted)\b"
+    r"|\brefund has been (?:issued|processed)\b"
+    r"|\baccount has been (?:fixed|resolved)\b"
+    r"|\bresponded to you via dm\b",
+    re.IGNORECASE,
+)
 
 
 class ResolutionDraft(BaseModel):
@@ -97,7 +109,10 @@ def build_prompt(query_text: str, retrieved: list[dict]) -> str:
         "do not invent policies, refunds, or facts not present in the examples. "
         "The examples belong to other customers: do not copy their links, "
         "order numbers, case numbers, or usernames into your reply — write a "
-        "new reply in the same style instead.\n\n"
+        "new reply in the same style instead. Do not state that any action "
+        "has already been completed for this new customer (a refund issued, "
+        "a DM already sent, an account already fixed) — nothing has been "
+        "done yet, so only offer to help or ask for more information.\n\n"
         f"{examples}\n\n"
         f"New ticket:\n{query_text}\n\n"
         "Respond with a JSON object with these fields: "
@@ -112,6 +127,10 @@ def build_prompt(query_text: str, retrieved: list[dict]) -> str:
 def redact_urls(reply: str) -> tuple[str, bool]:
     redacted = URL_PATTERN.sub("[link removed]", reply)
     return redacted, redacted != reply
+
+
+def claims_completed_action(reply: str) -> bool:
+    return COMPLETED_ACTION_PATTERN.search(reply) is not None
 
 
 def verify_citations(cited_ticket_ids: list[str], retrieved: list[dict]) -> tuple[list[str], list[str]]:
@@ -133,6 +152,7 @@ def generate_response(query_text: str, top_k: int = DEFAULT_TOP_K) -> dict:
     draft = ResolutionDraft.model_validate_json(response["message"]["content"])
     verified_citations, hallucinated_citations = verify_citations(draft.cited_ticket_ids, retrieved)
     redacted_reply, link_redacted = redact_urls(draft.reply)
+    completed_action_claimed = claims_completed_action(redacted_reply)
 
     return {
         "query": query_text,
@@ -140,7 +160,8 @@ def generate_response(query_text: str, top_k: int = DEFAULT_TOP_K) -> dict:
         "cited_ticket_ids": verified_citations,
         "hallucinated_citations": hallucinated_citations,
         "link_redacted": link_redacted,
-        "needs_human_escalation": draft.needs_human_escalation,
+        "completed_action_claimed": completed_action_claimed,
+        "needs_human_escalation": draft.needs_human_escalation or completed_action_claimed,
         "retrieved_examples": retrieved,
         "generation_model": GENERATION_MODEL_NAME,
     }
@@ -159,6 +180,8 @@ def main() -> None:
         print(f"Hallucinated citations (dropped): {result['hallucinated_citations']}")
     if result["link_redacted"]:
         print("A URL in the generated reply was redacted before returning it.")
+    if result["completed_action_claimed"]:
+        print("Reply claims an action was already completed — forced to human escalation.")
     print("\nRetrieved examples:")
     for example in result["retrieved_examples"]:
         print(f"  ticket {example['ticket_id']} ({example['category']}, distance {example['distance']:.3f})")

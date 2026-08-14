@@ -40,6 +40,7 @@ def make_result(**overrides: object) -> dict:
     result = {
         "num_hallucinated_citations": 0,
         "link_redacted": False,
+        "completed_action_claimed": False,
         "needs_human_escalation": False,
         "mean_groundedness_similarity": 0.5,
         "reply_nonempty": True,
@@ -83,6 +84,19 @@ def test_summarize_reports_link_redaction_rate():
     summary = summarize_results(results)
 
     assert summary["link_redaction_rate"] == 0.25
+
+
+def test_summarize_reports_completed_action_claim_rate():
+    results = [
+        make_result(completed_action_claimed=True),
+        make_result(completed_action_claimed=False),
+        make_result(completed_action_claimed=False),
+        make_result(completed_action_claimed=False),
+    ]
+
+    summary = summarize_results(results)
+
+    assert summary["completed_action_claim_rate"] == 0.25
 
 
 def test_summarize_counts_empty_or_short_replies():
