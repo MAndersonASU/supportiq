@@ -96,7 +96,7 @@ def tune_target(
         )
 
         pipeline = Pipeline([("tfidf", vectorizer), ("clf", best_model)])
-        mlflow.sklearn.log_model(pipeline, name="model")
+        mlflow.sklearn.log_model(pipeline, name="model", serialization_format="pickle")
 
         MODEL_DIR.mkdir(parents=True, exist_ok=True)
         joblib.dump(pipeline, MODEL_DIR / f"{target_col}_classifier.joblib")

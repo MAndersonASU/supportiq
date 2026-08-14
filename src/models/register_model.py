@@ -86,6 +86,7 @@ def register_and_promote(target_col: str, test_macro_f1: float, baseline_macro_f
             joblib.load(model_path),
             name="model",
             registered_model_name=model_name,
+            serialization_format="pickle",
         )
 
     versions = client.search_model_versions(f"name='{model_name}'")

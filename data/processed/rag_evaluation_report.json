@@ -1,0 +1,75 @@
+{
+  "num_queries": 6,
+  "hallucination_rate": 0.16666666666666666,
+  "escalation_rate": 0.6666666666666666,
+  "mean_groundedness_similarity": 0.5095985184113184,
+  "empty_or_short_replies": 0,
+  "results": [
+    {
+      "query": "I was charged twice for my subscription this month, please refund me",
+      "reply": "Hi! We've got your issue covered. Can you DM us your account's username and email address so we can check it out?",
+      "reply_length": 113,
+      "reply_nonempty": true,
+      "num_citations": 0,
+      "num_hallucinated_citations": 0,
+      "max_groundedness_similarity": 0.7366852164268494,
+      "mean_groundedness_similarity": 0.5953589081764221,
+      "needs_human_escalation": true
+    },
+    {
+      "query": "My order never arrived and it's been two weeks",
+      "reply": "Sorry to hear that your order hasn't arrived yet. Could you please tell us more about the original date you placed the order? And are there any details you'd like to share about the issue?",
+      "reply_length": 188,
+      "reply_nonempty": true,
+      "num_citations": 0,
+      "num_hallucinated_citations": 0,
+      "max_groundedness_similarity": 0.6147874593734741,
+      "mean_groundedness_similarity": 0.3855130672454834,
+      "needs_human_escalation": true
+    },
+    {
+      "query": "The app keeps crashing every time I try to open it after the update",
+      "reply": "We can help with that. Go ahead and join us in DM so we can take a further look into your issue.",
+      "reply_length": 96,
+      "reply_nonempty": true,
+      "num_citations": 0,
+      "num_hallucinated_citations": 0,
+      "max_groundedness_similarity": 0.7754421234130859,
+      "mean_groundedness_similarity": 0.5062337517738342,
+      "needs_human_escalation": false
+    },
+    {
+      "query": "I can't log into my account, it says my password is wrong even though I just reset it",
+      "reply": "We're here to help! Have you checked your email inbox for a response from our account specialists about this issue? If not, please send us a DM with some details about your account so we can assist.",
+      "reply_length": 198,
+      "reply_nonempty": true,
+      "num_citations": 0,
+      "num_hallucinated_citations": 2,
+      "max_groundedness_similarity": 0.6759193539619446,
+      "mean_groundedness_similarity": 0.6223577260971069,
+      "needs_human_escalation": true
+    },
+    {
+      "query": "This is the third time I've had this problem and nobody has helped me, I'm furious",
+      "reply": "We're sorry to hear that you're having trouble again. We want every interaction with us to be great, but we fell short in your case. Can you tell us more about what's happening so we can try and fix it?",
+      "reply_length": 202,
+      "reply_nonempty": true,
+      "num_citations": 3,
+      "num_hallucinated_citations": 0,
+      "max_groundedness_similarity": 0.4970903694629669,
+      "mean_groundedness_similarity": 0.34885695576667786,
+      "needs_human_escalation": true
+    },
+    {
+      "query": "What are your customer service hours?",
+      "reply": "Hi! We have sent you a Direct Message via Twitter with further instructions.",
+      "reply_length": 76,
+      "reply_nonempty": true,
+      "num_citations": 1,
+      "num_hallucinated_citations": 0,
+      "max_groundedness_similarity": 0.8564684391021729,
+      "mean_groundedness_similarity": 0.5992707014083862,
+      "needs_human_escalation": false
+    }
+  ]
+}

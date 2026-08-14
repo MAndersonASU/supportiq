@@ -1,19 +1,23 @@
 """
 RAG resolution assistant. Retrieves the most similar past tickets from
 the local vector index and prompts a local LLM (via Ollama) to draft a
-response grounded in those retrieved resolutions, citing which past
-ticket(s) informed it. No external API calls — embeddings and
-generation both run locally.
+response grounded in those retrieved resolutions, returned as a
+validated structured object rather than free text so a serving layer
+can consume it safely. Citations the model claims are cross-checked
+against what was actually retrieved — an LLM citing a ticket it wasn't
+shown is a hallucination, not a real citation, and is reported as such
+rather than trusted. No external API calls — embeddings and generation
+both run locally.
 """
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
 import chromadb
 import ollama
+from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 
 CHROMA_DIR = Path("data/vector_store")
@@ -21,6 +25,17 @@ COLLECTION_NAME = "ticket_resolutions"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 GENERATION_MODEL_NAME = "llama3.2:3b"
 DEFAULT_TOP_K = 3
+
+
+class ResolutionDraft(BaseModel):
+    reply: str = Field(description="The drafted customer support reply")
+    cited_ticket_ids: list[str] = Field(
+        default_factory=list,
+        description="Ticket numbers from the examples that informed the reply",
+    )
+    needs_human_escalation: bool = Field(
+        description="True if this ticket is too complex, sensitive, or ambiguous for a templated reply"
+    )
 
 _embedding_model: SentenceTransformer | None = None
 _collection = None
@@ -78,12 +93,23 @@ def build_prompt(query_text: str, retrieved: list[dict]) -> str:
         "do not invent policies, refunds, or facts not present in the examples. "
         "The examples belong to other customers: do not copy their links, "
         "order numbers, case numbers, or usernames into your reply — write a "
-        "new reply in the same style instead. "
-        "Reference the ticket number(s) of the example(s) you drew on.\n\n"
+        "new reply in the same style instead.\n\n"
         f"{examples}\n\n"
         f"New ticket:\n{query_text}\n\n"
-        "Draft reply:"
+        "Respond with a JSON object with these fields: "
+        '"reply" (the drafted reply text), '
+        '"cited_ticket_ids" (array of ticket numbers from the examples above '
+        "that you drew on), and "
+        '"needs_human_escalation" (true if this ticket is too complex, '
+        "sensitive, or ambiguous for a templated reply, false otherwise)."
     )
+
+
+def verify_citations(cited_ticket_ids: list[str], retrieved: list[dict]) -> tuple[list[str], list[str]]:
+    retrieved_ids = {r["ticket_id"] for r in retrieved}
+    verified = [t for t in cited_ticket_ids if t in retrieved_ids]
+    hallucinated = [t for t in cited_ticket_ids if t not in retrieved_ids]
+    return verified, hallucinated
 
 
 def generate_response(query_text: str, top_k: int = DEFAULT_TOP_K) -> dict:
@@ -93,11 +119,17 @@ def generate_response(query_text: str, top_k: int = DEFAULT_TOP_K) -> dict:
     response = ollama.chat(
         model=GENERATION_MODEL_NAME,
         messages=[{"role": "user", "content": prompt}],
+        format=ResolutionDraft.model_json_schema(),
     )
+    draft = ResolutionDraft.model_validate_json(response["message"]["content"])
+    verified_citations, hallucinated_citations = verify_citations(draft.cited_ticket_ids, retrieved)
 
     return {
         "query": query_text,
-        "draft_response": response["message"]["content"],
+        "reply": draft.reply,
+        "cited_ticket_ids": verified_citations,
+        "hallucinated_citations": hallucinated_citations,
+        "needs_human_escalation": draft.needs_human_escalation,
         "retrieved_examples": retrieved,
         "generation_model": GENERATION_MODEL_NAME,
     }
@@ -109,8 +141,12 @@ def main() -> None:
     result = generate_response(query)
 
     print(f"Query: {result['query']}\n")
-    print(f"Draft reply:\n{result['draft_response']}\n")
-    print("Retrieved examples:")
+    print(f"Draft reply:\n{result['reply']}\n")
+    print(f"Needs human escalation: {result['needs_human_escalation']}")
+    print(f"Cited tickets: {result['cited_ticket_ids']}")
+    if result["hallucinated_citations"]:
+        print(f"Hallucinated citations (dropped): {result['hallucinated_citations']}")
+    print("\nRetrieved examples:")
     for example in result["retrieved_examples"]:
         print(f"  ticket {example['ticket_id']} ({example['category']}, distance {example['distance']:.3f})")
 

@@ -90,7 +90,11 @@ ollama pull llama3.2:3b
 .venv\Scripts\python -m src.ai.build_knowledge_base
 .venv\Scripts\python -m src.ai.build_vector_index
 .venv\Scripts\python -m src.ai.rag_assistant "my order never arrived"
+.venv\Scripts\python -m src.ai.evaluate_rag
+.venv\Scripts\python -m src.ai.triage_pipeline "my order never arrived"
 ```
+
+`rag_assistant` returns a validated structured object (reply, cited ticket IDs cross-checked against what was actually retrieved, an escalation flag) rather than free text. `triage_pipeline` combines the production classifiers with the resolution assistant into a single classify-then-draft call, loading models from the MLflow registry by their `production` alias.
 
 The dataset ships with no ground-truth category/priority labels. `label_tickets` applies weak supervision (keyword labeling functions) rather than calling a paid LLM API; the category keywords were grounded by an exploratory clustering pass — see `src/models/explore_categories.py` and `docs/architecture.md`.
 

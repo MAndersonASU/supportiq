@@ -27,6 +27,7 @@ data/processed/*
 !data/processed/registry_report.json
 !data/processed/knowledge_base_report.json
 !data/processed/vector_index_report.json
+!data/processed/rag_evaluation_report.json
 !data/processed/*.dvc
 
 # Local vector store (reproducible via src/ai/build_vector_index.py)

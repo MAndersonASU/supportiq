@@ -115,7 +115,7 @@ def train_and_evaluate(
         mlflow.log_metrics(
             {f"test_{k}": v for k, v in test_metrics.items() if k != "per_class"}
         )
-        mlflow.sklearn.log_model(pipeline, name="model")
+        mlflow.sklearn.log_model(pipeline, name="model", serialization_format="pickle")
 
         MODEL_DIR.mkdir(parents=True, exist_ok=True)
         joblib.dump(pipeline, MODEL_DIR / f"{target_col}_classifier.joblib")

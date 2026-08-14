@@ -275,8 +275,11 @@ every category is well represented for retrieval.
 Given a new ticket's text, embeds it with the same local model, retrieves
 the top-k nearest past tickets from the vector index, and prompts a
 local LLM (Llama 3.2 3B via Ollama) to draft a reply grounded in those
-examples — citing which past ticket(s) informed it. No network call
-leaves the machine.
+examples. The response is a validated structured object (Pydantic model,
+generated via Ollama's JSON-schema-constrained output — no free-text
+parsing), not free text: a `reply`, the ticket IDs the model claims it
+drew on, and a `needs_human_escalation` flag. No network call leaves the
+machine.
 
 A real grounding failure showed up on the first live test and was fixed
 before treating the pipeline as done: the model copied a tracking URL
@@ -287,11 +290,61 @@ since those belong to other customers — write a new reply in the same
 style instead. Re-running the same query after the fix produced a clean
 draft with no copied identifiers.
 
+Citations the model claims are cross-checked against what was actually
+retrieved (`verify_citations`) rather than trusted outright — an LLM
+citing a ticket it was never shown is a hallucination, not a real
+citation. This safety net is not defensive coding for a hypothetical:
+the first evaluation run (below) caught it firing on a real query, where
+the model invented two ticket numbers that were never retrieved.
+
 Known limitation, not fixed: the model sometimes echoes structural
 labels from the prompt (e.g. `Support reply:`) into its own output — a
 formatting literalism typical of a 3B-parameter model, not a grounding
 or factual problem. Left as-is rather than over-engineering prompt
 formatting for a portfolio-scale assistant.
+
+### Evaluation harness (`src/ai/evaluate_rag.py`)
+
+Runs a fixed set of test queries through the full pipeline and scores
+each response on checks that don't require a paid judge: whether any
+cited ticket was hallucinated, whether the reply is non-empty, and how
+semantically close the reply is to the resolutions it's grounded in
+(cosine similarity via the same local embedding model already in the
+pipeline). Deliberately does not use the local LLM to judge its own
+output — a model scoring its own generations is a known-unreliable
+technique, not a real evaluation signal, and there's no independent
+judge available without the Claude API this project doesn't have
+budget for.
+
+First run against six test queries: 1 of 6 produced a hallucinated
+citation (caught and dropped by `verify_citations`, not surfaced to the
+user), 4 of 6 were flagged for human escalation, and mean groundedness
+similarity was 0.51 — a moderate, not extreme, score. A very high
+groundedness score would actually be suspicious here: it would suggest
+the model is copying retrieved text rather than paraphrasing it, the
+exact failure the citation-copying fix above addressed.
+
+### Triage pipeline (`src/ai/triage_pipeline.py`)
+
+Combines the Phase 2 classifiers and the Phase 3 resolution assistant
+into the single classify-then-draft flow the project set out to build:
+predict category and priority, then draft a grounded reply. Models are
+loaded from the MLflow registry by their `production` alias
+(`models:/<name>@production`) rather than from the local `.joblib`
+files directly, so the registry is exercised in an actual inference
+path, not just at training time.
+
+Running this against a live example surfaced a concrete instance of an
+already-documented limitation: a ticket containing "crashing" was
+classified as `General Inquiry` instead of `Technical Support`, because
+the category keyword pattern `\bcrash\b` requires a word boundary
+immediately after "crash" and doesn't match "crashing" — and since the
+classifier reconstructs the labeling rule near-perfectly (see the
+baseline classifier section above), it inherited the rule's blind spot
+along with its accuracy. Not fixed here — doing so would mean
+re-running all of Phase 2's training, tuning, and registry steps for a
+single keyword-matching edge case — but recorded as concrete evidence
+supporting that earlier finding rather than an isolated surprise.
 
 ## Design decisions log
 
@@ -426,3 +479,35 @@ history.
   resolution into a draft for a different customer on the first live
   test. Caught by actually running the pipeline against a real query
   before considering it done, not by inspecting the code.
+- **2026-08-13** — The RAG assistant returns a Pydantic-validated
+  structured object via Ollama's JSON-schema-constrained output, not
+  parsed free text. A serving layer consuming unstructured text would
+  need to re-parse it heuristically; a validated schema is a contract.
+- **2026-08-13** — Citations the model claims are cross-checked against
+  what was actually retrieved and dropped if not (`verify_citations`),
+  rather than passed through to the caller unverified. An LLM stating a
+  ticket number is not evidence that ticket was actually used.
+- **2026-08-13** — The evaluation harness does not use the local LLM to
+  judge its own output. Self-judging is a known-unreliable technique;
+  the harness instead uses checks that don't require a language model's
+  opinion at all — hallucinated-citation detection and embedding-based
+  groundedness — plus a note that this is not equivalent to a real
+  quality judgment, since no independent judge is available without a
+  paid API this project doesn't have budget for.
+- **2026-08-13** — Switched model logging from MLflow's default `skops`
+  serialization to `pickle` after `skops`'s type-introspection triggered
+  a `transformers` lazy-import chain requiring `torchvision` (not
+  installed) — but only when `sentence-transformers` had already been
+  imported earlier in the same process, which the triage pipeline does.
+  `skops` exists to avoid pickle's arbitrary-code-execution risk on
+  untrusted models; that risk doesn't apply to models this project
+  trained itself, so pickle was the pragmatic fix rather than adding an
+  unrelated heavy dependency (`torchvision`) just to satisfy an
+  incidental introspection call. Re-registered both models as new
+  versions after the fix.
+- **2026-08-13** — The triage pipeline loads production models via their
+  MLflow registry alias (`models:/<name>@production`) instead of reading
+  the local `.joblib` files directly, even though both are available.
+  Reading straight from disk would mean the registry's promotion
+  decision is never actually consulted at inference time — it would
+  exist only as a training-time formality.
