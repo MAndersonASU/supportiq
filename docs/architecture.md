@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 4 (MLOps/Serving) — this document will grow as each phase
-lands.
+Status: Feature-complete — all five planned phases (data engineering,
+classical ML, GenAI/RAG, MLOps/serving, polish) are built and verified.
 
 ## System overview
 
