@@ -356,7 +356,7 @@ Known limitation, not fixed: the model sometimes echoes structural
 labels from the prompt (e.g. `Support reply:`) into its own output — a
 formatting literalism typical of a 3B-parameter model, not a grounding
 or factual problem. Left as-is rather than over-engineering prompt
-formatting for a portfolio-scale assistant.
+formatting for a single-model, low-traffic assistant.
 
 The prompt instruction against copying real links doesn't stop the
 model from fabricating a new, fictitious one — a distinct failure mode
