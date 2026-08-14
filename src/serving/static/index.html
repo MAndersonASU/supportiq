@@ -202,6 +202,26 @@
     font-size: 15px;
     margin: 0 0 12px;
   }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-header h2.section-title { margin-bottom: 0; }
+  button.clear-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    margin-bottom: 12px;
+  }
+  button.clear-btn:hover {
+    color: var(--high);
+    border-color: var(--danger-border);
+  }
   .history-item {
     border-top: 1px solid var(--border);
     padding: 12px 0;
@@ -262,7 +282,10 @@
   </section>
 
   <section class="panel">
-    <h2 class="section-title">History</h2>
+    <div class="section-header">
+      <h2 class="section-title">History</h2>
+      <button class="clear-btn" id="clearHistoryBtn" type="button">Clear</button>
+    </div>
     <div id="history"><p class="empty-state">No tickets triaged yet this session.</p></div>
   </section>
 </div>
@@ -292,6 +315,7 @@ const els = {
   citations: document.getElementById("citations"),
   safetyChecks: document.getElementById("safetyChecks"),
   history: document.getElementById("history"),
+  clearHistoryBtn: document.getElementById("clearHistoryBtn"),
 };
 
 let historyItems = [];
@@ -423,7 +447,13 @@ async function submitTicket() {
   }
 }
 
+function clearHistory() {
+  historyItems = [];
+  els.history.innerHTML = '<p class="empty-state">No tickets triaged yet this session.</p>';
+}
+
 els.submitBtn.addEventListener("click", submitTicket);
+els.clearHistoryBtn.addEventListener("click", clearHistory);
 renderExamples();
 checkHealth();
 </script>

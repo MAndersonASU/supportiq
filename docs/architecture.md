@@ -508,7 +508,9 @@ not just by reading the code: health check, both example and manual
 ticket submission, the escalation banner, citation display in both
 empty and populated states, all four safety-check pills in both their
 fired and clean states, history accumulation across multiple
-submissions, and the empty-input validation message.
+submissions, the empty-input validation message, and the history
+panel's clear control (resets the session history without touching the
+current result panel).
 
 The triage function is injected via a FastAPI dependency
 (`get_triage_fn`) rather than called directly from the route handler, so
