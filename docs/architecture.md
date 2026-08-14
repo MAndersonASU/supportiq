@@ -346,6 +346,31 @@ re-running all of Phase 2's training, tuning, and registry steps for a
 single keyword-matching edge case — but recorded as concrete evidence
 supporting that earlier finding rather than an isolated surprise.
 
+### Serving layer (`src/serving/app.py`, `src/serving/logging_config.py`)
+
+A FastAPI service exposing the triage pipeline over HTTP: `GET /health`
+for liveness, `POST /triage` accepting raw ticket text and returning the
+same structured response the pipeline produces internally, plus
+interactive docs at `/docs` generated automatically from the Pydantic
+request/response models.
+
+The triage function is injected via a FastAPI dependency
+(`get_triage_fn`) rather than called directly from the route handler, so
+the API layer's tests exercise routing, validation, and response shaping
+against a fake triage function — no live Ollama, vector index, or MLflow
+registry required for that test run. A separate live check against the
+actual running server (embedding model, classifiers, and local LLM all
+real) confirmed the full path works end to end, including that
+structured logging never logs raw ticket text — only its length, which
+matters for a service that may see customer-identifying content.
+
+Models are not eagerly loaded at startup. `triage_pipeline` and
+`rag_assistant` already lazily load and cache the classifiers, embedding
+model, and vector index on first use, so the service starts instantly
+and only the first real request pays the model-load cost (measured at
+about 14 seconds in a live run) rather than every deployment paying it
+upfront before serving anything.
+
 ## Design decisions log
 
 Decisions are recorded here as they're made, with the reasoning, so the
@@ -511,3 +536,26 @@ history.
   Reading straight from disk would mean the registry's promotion
   decision is never actually consulted at inference time — it would
   exist only as a training-time formality.
+- **2026-08-13** — The `/triage` endpoint takes its triage function via
+  a FastAPI dependency instead of importing and calling `triage()`
+  directly. The API layer's own tests can then swap in a fake function
+  and verify routing, validation, and response shaping without needing
+  Ollama, the vector index, or the MLflow registry available in the test
+  environment — those are exercised separately by the modules' own
+  tests and by a live run against the real server.
+- **2026-08-13** — No eager model loading at FastAPI startup. Both
+  `triage_pipeline` and `rag_assistant` already lazily load and cache
+  their models on first use; adding startup warm-up would duplicate that
+  logic and would have forced the app's test suite to load real models
+  just to construct the `TestClient`, since FastAPI's lifespan runs on
+  app startup regardless of dependency overrides on individual routes.
+- **2026-08-13** — Structured request logs never include raw ticket
+  text — only its length. A support ticket can carry customer-
+  identifying or sensitive content, and a log line is a much less
+  controlled surface than the API response itself.
+- **2026-08-13** — Switched the test suite's HTTP transport from `httpx`
+  to `httpx2` after Starlette's `TestClient` logged a deprecation
+  warning recommending it. Verified `httpx2` is a real, actively
+  published package (not a speculative or unmaintained one) before
+  adopting it, rather than either ignoring the warning or switching on
+  faith.

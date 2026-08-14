@@ -37,10 +37,9 @@ Full breakdown in [`docs/architecture.md`](docs/architecture.md).
 src/
 ├── data/       ingestion, validation, cleaning
 ├── features/   thread reconstruction, ticket-level feature engineering
-├── ai/         knowledge base, vector index, RAG resolution assistant
+├── ai/         knowledge base, vector index, RAG resolution assistant, triage pipeline
 ├── models/     training, evaluation, model registry
-├── ai/         embeddings, vector store, RAG, agent logic
-└── serving/    FastAPI application
+└── serving/    FastAPI application, structured logging
 tests/          unit and pipeline tests
 docs/           architecture notes and the engineering log
 data/
@@ -95,6 +94,14 @@ ollama pull llama3.2:3b
 ```
 
 `rag_assistant` returns a validated structured object (reply, cited ticket IDs cross-checked against what was actually retrieved, an escalation flag) rather than free text. `triage_pipeline` combines the production classifiers with the resolution assistant into a single classify-then-draft call, loading models from the MLflow registry by their `production` alias.
+
+## Running the API
+
+```
+.venv\Scripts\python -m uvicorn src.serving.app:app --reload
+```
+
+`GET /health` for a liveness check, `POST /triage` with `{"text": "..."}` for a full classify-and-draft response, interactive docs at `/docs`. Models are not loaded at startup — the first request pays the one-time load cost (embedding model, vector index, classifiers); subsequent requests reuse the cached models.
 
 The dataset ships with no ground-truth category/priority labels. `label_tickets` applies weak supervision (keyword labeling functions) rather than calling a paid LLM API; the category keywords were grounded by an exploratory clustering pass — see `src/models/explore_categories.py` and `docs/architecture.md`.
 
